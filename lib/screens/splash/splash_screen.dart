@@ -1,7 +1,12 @@
 import 'package:apma_app/core/constants/app_colors.dart';
 import 'package:apma_app/core/constants/app_constant.dart';
+import 'package:apma_app/core/di/injection_container.dart';
+import 'package:apma_app/core/services/local_storage_service.dart';
 import 'package:apma_app/core/widgets/apmaco_logo.dart';
+import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:apma_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:apma_app/screens/auth/login_page.dart';
+import 'package:apma_app/screens/home/home_page.dart';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -40,38 +45,61 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.forward();
 
     // Navigate to login after delay
-    _navigateToLogin();
+    _navigateToNextScreen();
   }
 
-  void _navigateToLogin() async {
+  void _navigateToNextScreen() async {
     await Future.delayed(AppConstants.splashDuration);
 
     if (mounted && !_isNavigating) {
       _isNavigating = true;
 
       if (mounted) {
+        // بررسی اطلاعات کاربر ذخیره‌شده
+        final localStorageService = sl<LocalStorageService>();
+        final isLoggedIn = localStorageService.isLoggedIn;
+        final savedUsername = localStorageService.savedUsername;
+        final savedPassword = localStorageService.savedPassword;
+
+        Widget nextScreen;
+
+        if (isLoggedIn && savedUsername != null) {
+          // اگر کاربر قبلا وارد شده، برو به home
+          nextScreen = HomePage(
+            username: savedUsername,
+            name: localStorageService.savedName ?? savedUsername,
+          );
+        } else if (savedUsername != null && savedPassword != null) {
+          // اگر رمز عبور ذخیره‌شده است، خودکار ورود
+          Future.delayed(const Duration(milliseconds: 500), () {
+            final authBloc = sl<AuthBloc>();
+            authBloc.add(
+              AutoLoginEvent(username: savedUsername, password: savedPassword),
+            );
+          });
+          nextScreen = const LoginPage();
+        } else {
+          // برو به صفحه login
+          nextScreen = const LoginPage();
+        }
+
         // Start fade out animation and navigate simultaneously
         _animationController.reverse();
 
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder:
-                (context, animation, secondaryAnimation) => const LoginPage(),
+            pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
             transitionsBuilder: (
               context,
               animation,
               secondaryAnimation,
               child,
             ) {
-              // Fade in animation for login page
+              // Fade in animation for next page
               var fadeInAnimation = Tween(begin: 0.0, end: 1.0).animate(
                 CurvedAnimation(
                   parent: animation,
-                  curve: const Interval(
-                    0.3,
-                    1.0,
-                    curve: Curves.easeInOut,
-                  ), // Start after 30% to create crossfade
+                  curve: const Interval(0.3, 1.0, curve: Curves.easeInOut),
                 ),
               );
 

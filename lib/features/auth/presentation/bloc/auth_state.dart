@@ -18,11 +18,12 @@ class AuthLoading extends AuthState {
 
 class AuthAuthenticated extends AuthState {
   final User user;
+  final bool showSavePasswordDialog;
 
-  const AuthAuthenticated(this.user);
+  const AuthAuthenticated(this.user, {this.showSavePasswordDialog = false});
 
   @override
-  List<Object> get props => [user];
+  List<Object> get props => [user, showSavePasswordDialog];
 }
 
 class AuthUnauthenticated extends AuthState {

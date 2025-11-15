@@ -1,6 +1,8 @@
 import 'package:apma_app/core/constants/app_colors.dart';
 import 'package:apma_app/core/constants/app_constant.dart';
 import 'package:apma_app/core/constants/app_string.dart';
+import 'package:apma_app/core/di/injection_container.dart';
+import 'package:apma_app/core/services/local_storage_service.dart';
 import 'package:apma_app/core/widgets/apmaco_logo.dart';
 import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:apma_app/features/auth/presentation/bloc/auth_event.dart';
@@ -34,6 +36,26 @@ class _LoginViewState extends State<LoginView> {
   bool _isPasswordVisible = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedPassword();
+  }
+
+  void _loadSavedPassword() {
+    final localStorageService = sl<LocalStorageService>();
+    final savedUsername = localStorageService.savedUsername;
+    final savedPassword = localStorageService.savedPassword;
+
+    if (savedUsername != null) {
+      _usernameController.text = savedUsername;
+    }
+
+    if (savedPassword != null) {
+      _passwordController.text = savedPassword;
+    }
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
@@ -59,6 +81,14 @@ class _LoginViewState extends State<LoginView> {
     }
   }
 
+  void _navigateToHome(String username, String name) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => HomePage(username: username, name: name),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,10 +96,8 @@ class _LoginViewState extends State<LoginView> {
       body: SafeArea(
         child: Column(
           children: [
-            // فاصله از بالا برای بالاتر آوردن فرم
             const SizedBox(height: 80),
 
-            // فرم لاگین
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppConstants.paddingLarge),
@@ -84,18 +112,19 @@ class _LoginViewState extends State<LoginView> {
                         '✅ احراز هویت موفق: ${state.user.username}',
                       );
 
-                      // Navigate to Home
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder:
-                                (context) => HomePage(
-                                  username: state.user.username,
-                                  name: state.user.name,
-                                ),
-                          ),
+                      if (state.showSavePasswordDialog) {
+                        final localStorageService = sl<LocalStorageService>();
+                        localStorageService.savePassword(
+                          _passwordController.text,
+                          _usernameController.text,
                         );
-                      });
+                        developer.log('💾 رمز عبور خودکار ذخیره شد');
+                      }
+
+                      _navigateToHome(
+                        state.user.username,
+                        state.user.name ?? "",
+                      );
                     } else if (state is AuthError) {
                       developer.log('❌ خطا: ${state.message}');
 
@@ -115,12 +144,10 @@ class _LoginViewState extends State<LoginView> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // Logo
                           const ApmacoLogo(width: 200, height: 80),
 
                           const SizedBox(height: 60),
 
-                          // Username Field
                           TextFormField(
                             controller: _usernameController,
                             textAlign: TextAlign.right,
@@ -138,7 +165,6 @@ class _LoginViewState extends State<LoginView> {
 
                           const SizedBox(height: 20),
 
-                          // Password Field
                           TextFormField(
                             controller: _passwordController,
                             textAlign: TextAlign.right,
@@ -170,7 +196,6 @@ class _LoginViewState extends State<LoginView> {
 
                           const SizedBox(height: 30),
 
-                          // Login Button
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
@@ -196,7 +221,6 @@ class _LoginViewState extends State<LoginView> {
               ),
             ),
 
-            // Version Info در پایین
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

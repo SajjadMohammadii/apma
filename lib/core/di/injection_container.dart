@@ -1,4 +1,5 @@
 import 'package:apma_app/core/network/soap_client.dart';
+import 'package:apma_app/core/services/local_storage_service.dart';
 import 'package:apma_app/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:apma_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:apma_app/features/auth/domain/repositories/auth_repository.dart';
@@ -15,7 +16,13 @@ Future<void> init() async {
   //! Features - Auth
 
   // Bloc
-  sl.registerFactory(() => AuthBloc(loginUseCase: sl(), repository: sl()));
+  sl.registerFactory(
+    () => AuthBloc(
+      loginUseCase: sl(),
+      repository: sl(),
+      localStorageService: sl(),
+    ),
+  );
 
   // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));
@@ -31,6 +38,11 @@ Future<void> init() async {
   );
 
   //! Core
+
+  // LocalStorageService
+  final localStorageService = LocalStorageService();
+  await localStorageService.init();
+  sl.registerLazySingleton(() => localStorageService);
 
   // SOAP Client
   sl.registerLazySingleton<SoapClient>(
