@@ -226,7 +226,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildUserCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 12, 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primaryPurple, Color(0xFF8882B2)],
@@ -245,65 +245,73 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'خوش آمدید!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Vazir',
+          const Flexible(
+            flex: 0,
+            child: Text(
+              'خوش آمدید!',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Vazir',
+              ),
             ),
           ),
-          const Spacer(),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      color: Color(0xFF0095F6),
-                      size: 10,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.name ?? widget.username,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Vazir',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'نقش سازمانی',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontFamily: 'Vazir',
-                ),
-              ),
-            ],
-          ),
           const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Color(0xFF0095F6),
+                        size: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        widget.name ?? widget.username,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Vazir',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'نقش سازمانی',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontFamily: 'Vazir',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
+              border: Border.all(color: Colors.white, width: 2),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.3),
@@ -313,11 +321,11 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             child: CircleAvatar(
-              radius: 32,
+              radius: 24,
               backgroundColor: Colors.white,
               child: const Icon(
                 Icons.person,
-                size: 36,
+                size: 28,
                 color: AppColors.primaryPurple,
               ),
             ),

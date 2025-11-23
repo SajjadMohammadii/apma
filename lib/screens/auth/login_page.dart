@@ -50,11 +50,10 @@ class _LoginViewState extends State<LoginView> {
     final savedPassword = localStorageService.savedPassword;
 
     if (savedUsername != null) {
-      _usernameController.text = savedUsername;
+      _usernameController.text = savedUsername.trim(); // اضافه کردم trim
     }
-
     if (savedPassword != null) {
-      _passwordController.text = savedPassword;
+      _passwordController.text = savedPassword.trim(); // اضافه کردم trim
     }
   }
 

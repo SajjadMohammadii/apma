@@ -36,15 +36,19 @@ class TableHeaderWidget extends StatelessWidget {
           IntrinsicHeight(
             child: Row(
               children: [
-                _buildSortableHeader('ردیف', flex: 1, index: 0),
+                _buildSortableHeader(
+                  'ردیف',
+                  flex: 1,
+                  index: -1,
+                ), // ردیف سورت نمیخوره
                 _buildDivider(),
-                _buildSortableHeader('تاریخ پیش فاکتور', flex: 2, index: 1),
+                _buildSortableHeader('تاریخ پیش فاکتور', flex: 2, index: 0),
                 _buildDivider(),
-                _buildSortableHeader('شماره پیش فاکتور', flex: 2, index: 2),
+                _buildSortableHeader('شماره پیش فاکتور', flex: 2, index: 1),
                 _buildDivider(),
-                _buildSortableHeader('مشتری', flex: 3, index: 3),
+                _buildSortableHeader('مشتری', flex: 3, index: 2),
                 _buildDivider(),
-                _buildSortableHeader('صادرکننده', flex: 2, index: 4),
+                _buildSortableHeader('صادرکننده', flex: 2, index: 3),
               ],
             ),
           ),
@@ -64,10 +68,12 @@ class TableHeaderWidget extends StatelessWidget {
     required int index,
   }) {
     final isActive = sortColumnIndex == index;
+    final isSortable = index >= 0; // ردیف سورت نمیخوره
+
     return Expanded(
       flex: flex,
       child: InkWell(
-        onTap: () => onSort(index),
+        onTap: isSortable ? () => onSort(index) : null,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -84,14 +90,16 @@ class TableHeaderWidget extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              isActive
-                  ? (isAscending ? Icons.arrow_upward : Icons.arrow_downward)
-                  : Icons.unfold_more,
-              color: Colors.white,
-              size: 16,
-            ),
+            if (isSortable) ...[
+              const SizedBox(width: 4),
+              Icon(
+                isActive
+                    ? (isAscending ? Icons.arrow_upward : Icons.arrow_downward)
+                    : Icons.unfold_more,
+                color: Colors.white,
+                size: 16,
+              ),
+            ],
           ],
         ),
       ),

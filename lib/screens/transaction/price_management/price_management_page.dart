@@ -1,15 +1,24 @@
 import 'package:apma_app/core/constants/app_colors.dart';
+import 'package:apma_app/core/network/soap_client.dart';
+import 'package:apma_app/core/di/injection_container.dart';
+import 'package:apma_app/screens/transaction/price_management/bloc/price_management_bloc.dart';
+import 'package:apma_app/screens/transaction/price_management/bloc/price_management_event.dart';
+import 'package:apma_app/screens/transaction/price_management/bloc/price_management_state.dart';
+import 'package:apma_app/screens/transaction/price_management/services/price_request_service.dart';
+import 'package:apma_app/screens/transaction/price_management/models/price_request_model.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/advanced_filter_dialog.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/date_field_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/filter_button_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/save_button_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/status_dropdown_widget.dart';
-import 'package:apma_app/screens/transaction/price_management/widgets/sub_table_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/table_header_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/table_row_widget.dart';
+import 'package:apma_app/screens/transaction/price_management/widgets/sub_table_widget.dart';
 import 'package:apma_app/shared/widgets/persian_date_picker/persian_date_picker_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 class PriceManagementPage extends StatefulWidget {
   const PriceManagementPage({super.key});
@@ -19,7 +28,6 @@ class PriceManagementPage extends StatefulWidget {
 }
 
 class _PriceManagementPageState extends State<PriceManagementPage> {
-  // State variables
   String selectedStatus = 'در حال بررسی';
   Map<int, String> subFieldStatuses = {};
   final List<String> statusOptions = [
@@ -29,7 +37,6 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
     'رد شده',
   ];
   Set<int> expandedRows = {};
-  bool hasChanges = false;
 
   // Sort variables
   int? sortColumnIndex;
@@ -37,136 +44,21 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   Map<int, int?> subSortColumnIndex = {};
   Map<int, bool> subIsAscending = {};
 
-  // Filter dates
-  String fromDate = '1403/08/01';
-  String toDate = '1403/08/30';
+  String fromDate = '1403/01/01';
+  String toDate = '1403/12/29';
 
-  // Filter controllers
   final TextEditingController _numberFilterController = TextEditingController();
   final TextEditingController _customerFilterController =
       TextEditingController();
   final TextEditingController _issuerFilterController = TextEditingController();
   final TextEditingController _keywordsController = TextEditingController();
-  String selectedSearchMode = 'AND';
 
-  // Data
-  List<Map<String, dynamic>> mainData = [
-    {
-      'id': 1,
-      'date': '1403/08/28',
-      'number': '24536',
-      'customer': 'شرکت داروسازی کاسپین',
-      'issuer': 'بهار دولتی',
-    },
-    {
-      'id': 2,
-      'date': '1403/08/27',
-      'number': '24537',
-      'customer': 'شرکت پخش البرز',
-      'issuer': 'علی احمدی',
-    },
-    {
-      'id': 3,
-      'date': '1403/08/26',
-      'number': '24538',
-      'customer': 'شرکت داروپخش',
-      'issuer': 'سارا رضایی',
-    },
-    {
-      'id': 4,
-      'date': '1403/08/25',
-      'number': '24539',
-      'customer': 'شرکت پخش رازی',
-      'issuer': 'محمد کریمی',
-    },
-    {
-      'id': 5,
-      'date': '1403/08/24',
-      'number': '24540',
-      'customer': 'شرکت داروپخش سپهر',
-      'issuer': 'زهرا محمدی',
-    },
-    {
-      'id': 6,
-      'date': '1403/08/23',
-      'number': '24541',
-      'customer': 'شرکت داروسازی تهران',
-      'issuer': 'حسن رضایی',
-    },
-  ];
+  late PriceManagementBloc _bloc;
 
+  // داده‌های تبدیل شده برای UI
+  List<Map<String, dynamic>> mainData = [];
   List<Map<String, dynamic>> filteredData = [];
-
-  Map<int, List<Map<String, dynamic>>> subData = {
-    1: [
-      {
-        'request_date': '1403/08/28',
-        'product_name': 'محصول الف',
-        'request_type': 'افزایش قیمت',
-        'current_price': 150000,
-        'requested_price': 180000,
-        'approval_status': 'در حال بررسی',
-      },
-      {
-        'request_date': '1403/08/29',
-        'product_name': 'محصول ب',
-        'request_type': 'کاهش قیمت',
-        'current_price': 200000,
-        'requested_price': 180000,
-        'approval_status': 'تایید شده',
-      },
-    ],
-    2: [
-      {
-        'request_date': '1403/08/27',
-        'product_name': 'محصول ج',
-        'request_type': 'افزایش قیمت',
-        'current_price': 300000,
-        'requested_price': 350000,
-        'approval_status': 'رد شده',
-      },
-    ],
-    3: [
-      {
-        'request_date': '1403/08/26',
-        'product_name': 'محصول د',
-        'request_type': 'کاهش قیمت',
-        'current_price': 400000,
-        'requested_price': 350000,
-        'approval_status': 'در حال بررسی',
-      },
-    ],
-    4: [
-      {
-        'request_date': '1403/08/25',
-        'product_name': 'محصول ه',
-        'request_type': 'افزایش قیمت',
-        'current_price': 500000,
-        'requested_price': 550000,
-        'approval_status': 'تایید شده',
-      },
-    ],
-    5: [
-      {
-        'request_date': '1403/08/24',
-        'product_name': 'محصول و',
-        'request_type': 'افزایش قیمت',
-        'current_price': 250000,
-        'requested_price': 280000,
-        'approval_status': 'در حال بررسی',
-      },
-    ],
-    6: [
-      {
-        'request_date': '1403/08/23',
-        'product_name': 'محصول ز',
-        'request_type': 'کاهش قیمت',
-        'current_price': 600000,
-        'requested_price': 550000,
-        'approval_status': 'تایید شده',
-      },
-    ],
-  };
+  Map<int, List<Map<String, dynamic>>> subData = {};
 
   @override
   void initState() {
@@ -175,17 +67,120 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    _initializeData();
+
+    final soapClient = sl<SoapClient>();
+    final service = PriceRequestService(soapClient: soapClient);
+    _bloc = PriceManagementBloc(priceRequestService: service);
+
+    _loadData();
   }
 
-  void _initializeData() {
-    for (var item in mainData) {
-      subFieldStatuses[item['id']] = 'در حال بررسی';
-      subSortColumnIndex[item['id']] = null;
-      subIsAscending[item['id']] = true;
+  void _loadData() {
+    // اگه بازه تاریخ کل سال باشه، NULL بفرست
+    final bool isFullYear = fromDate == '1403/01/01' && toDate == '1403/12/29';
+
+    final fromDateGregorian =
+        isFullYear ? 'NULL' : _persianToGregorian(fromDate);
+    final toDateGregorian = isFullYear ? 'NULL' : _persianToGregorian(toDate);
+
+    // Always load all data, filtering will be done locally
+    final statusCode = 0; // 'همه' - load all statuses
+
+    _bloc.add(
+      LoadPriceRequestsEvent(
+        fromDate: fromDateGregorian,
+        toDate: toDateGregorian,
+        status: statusCode,
+        criteria: _keywordsController.text,
+      ),
+    );
+  }
+
+  int _getStatusCode(String status) {
+    switch (status) {
+      case 'همه':
+        return 0;
+      case 'در حال بررسی':
+        return 1;
+      case 'تایید شده':
+        return 2;
+      case 'رد شده':
+        return 3;
+      default:
+        return 0;
     }
-    filteredData = List.from(mainData);
-    _applyFilters();
+  }
+
+  String _persianToGregorian(String persianDate) {
+    try {
+      final parts = persianDate.split('/');
+      if (parts.length == 3) {
+        final year = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final day = int.parse(parts[2]);
+
+        final jalali = Jalali(year, month, day);
+        final gregorian = jalali.toGregorian();
+
+        return '${gregorian.year}'
+            '${gregorian.month.toString().padLeft(2, '0')}'
+            '${gregorian.day.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      print('خطا در تبدیل تاریخ: $e');
+    }
+    return persianDate.replaceAll('/', '');
+  }
+
+  String _gregorianToPersian(String gregorianDate) {
+    try {
+      if (gregorianDate.length >= 8) {
+        final year = int.parse(gregorianDate.substring(0, 4));
+        final month = int.parse(gregorianDate.substring(4, 6));
+        final day = int.parse(gregorianDate.substring(6, 8));
+
+        final gregorian = Gregorian(year, month, day);
+        final jalali = gregorian.toJalali();
+
+        return '${jalali.year}/${jalali.month.toString().padLeft(2, '0')}/${jalali.day.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      print('خطا در تبدیل تاریخ میلادی به شمسی: $e');
+    }
+    return gregorianDate;
+  }
+
+  int _persianDateToComparable(String persianDate) {
+    try {
+      final parts = persianDate.split('/');
+      if (parts.length == 3) {
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final d = int.parse(parts[2]);
+        final jalali = Jalali(y, m, d);
+        final g = jalali.toGregorian();
+        final dt = DateTime(g.year, g.month, g.day);
+        return dt.millisecondsSinceEpoch;
+      } else {
+        // fallback: remove slashes and parse as int
+        return int.tryParse(persianDate.replaceAll('/', '')) ?? 0;
+      }
+    } catch (_) {
+      return int.tryParse(persianDate.replaceAll('/', '')) ?? 0;
+    }
+  }
+
+  int _gregorianStringToComparable(String gregorianDate) {
+    try {
+      if (gregorianDate.length >= 8) {
+        final year = int.parse(gregorianDate.substring(0, 4));
+        final month = int.parse(gregorianDate.substring(4, 6));
+        final day = int.parse(gregorianDate.substring(6, 8));
+        final dt = DateTime(year, month, day);
+        return dt.millisecondsSinceEpoch;
+      }
+    } catch (_) {}
+    return int.tryParse(gregorianDate.replaceAll('/', '')) ?? 0;
   }
 
   @override
@@ -198,10 +193,10 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
     _customerFilterController.dispose();
     _issuerFilterController.dispose();
     _keywordsController.dispose();
+    _bloc.close();
     super.dispose();
   }
 
-  // Select date
   Future<void> _selectDate(bool isFromDate) async {
     final selectedDate = await PersianDatePickerDialog.show(
       context,
@@ -214,101 +209,8 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
         } else {
           toDate = selectedDate;
         }
-        _applyFilters();
+        _loadData();
       });
-    }
-  }
-
-  // Apply filters
-  void _applyFilters() {
-    setState(() {
-      filteredData =
-          mainData.where((item) {
-            bool statusMatch =
-                selectedStatus == 'همه' ||
-                _getItemStatus(item['id']) == selectedStatus;
-            bool dateMatch = _isDateInRange(item['date'], fromDate, toDate);
-            bool numberMatch =
-                _numberFilterController.text.isEmpty ||
-                item['number'].toString().contains(
-                  _numberFilterController.text,
-                );
-            bool customerMatch =
-                _customerFilterController.text.isEmpty ||
-                item['customer'].toString().toLowerCase().contains(
-                  _customerFilterController.text.toLowerCase(),
-                );
-            bool issuerMatch =
-                _issuerFilterController.text.isEmpty ||
-                item['issuer'].toString().toLowerCase().contains(
-                  _issuerFilterController.text.toLowerCase(),
-                );
-            bool keywordMatch = _checkKeywordMatch(item);
-
-            return statusMatch &&
-                dateMatch &&
-                numberMatch &&
-                customerMatch &&
-                issuerMatch &&
-                keywordMatch;
-          }).toList();
-    });
-  }
-
-  bool _checkKeywordMatch(Map<String, dynamic> item) {
-    if (_keywordsController.text.trim().isEmpty) return true;
-
-    List<String> keywords =
-        _keywordsController.text
-            .trim()
-            .split(RegExp(r'[,\s]+'))
-            .where((k) => k.isNotEmpty)
-            .map((k) => k.toLowerCase())
-            .toList();
-
-    if (keywords.isEmpty) return true;
-
-    String searchableText =
-        [
-          item['customer'].toString(),
-          item['number'].toString(),
-          item['issuer'].toString(),
-          item['date'].toString(),
-        ].join(' ').toLowerCase();
-
-    if (selectedSearchMode == 'AND') {
-      return keywords.every((keyword) => searchableText.contains(keyword));
-    } else {
-      return keywords.any((keyword) => searchableText.contains(keyword));
-    }
-  }
-
-  String _getItemStatus(int itemId) {
-    return subFieldStatuses[itemId] ?? 'در حال بررسی';
-  }
-
-  bool _isDateInRange(String dateStr, String fromStr, String toStr) {
-    try {
-      List<String> dateParts = dateStr.split('/');
-      List<String> fromParts = fromStr.split('/');
-      List<String> toParts = toStr.split('/');
-
-      int dateInt =
-          int.parse(dateParts[0]) * 10000 +
-          int.parse(dateParts[1]) * 100 +
-          int.parse(dateParts[2]);
-      int fromInt =
-          int.parse(fromParts[0]) * 10000 +
-          int.parse(fromParts[1]) * 100 +
-          int.parse(fromParts[2]);
-      int toInt =
-          int.parse(toParts[0]) * 10000 +
-          int.parse(toParts[1]) * 100 +
-          int.parse(toParts[2]);
-
-      return dateInt >= fromInt && dateInt <= toInt;
-    } catch (e) {
-      return true;
     }
   }
 
@@ -321,28 +223,184 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
             customerController: _customerFilterController,
             issuerController: _issuerFilterController,
             keywordsController: _keywordsController,
-            initialSearchMode: selectedSearchMode,
+            initialSearchMode: 'AND',
             onApply: (searchMode) {
-              setState(() {
-                selectedSearchMode = searchMode;
-              });
               _applyFilters();
             },
             onClear: () {
-              setState(() {
-                _numberFilterController.clear();
-                _customerFilterController.clear();
-                _issuerFilterController.clear();
-                _keywordsController.clear();
-                selectedSearchMode = 'AND';
-              });
+              _numberFilterController.clear();
+              _customerFilterController.clear();
+              _issuerFilterController.clear();
+              _keywordsController.clear();
               _applyFilters();
             },
           ),
     );
   }
 
-  // Sort main table
+  void _convertApiDataToUIFormat(
+    Map<String, List<PriceRequestModel>> groupedByOrder,
+  ) {
+    mainData.clear();
+    subData.clear();
+    int id = 1;
+
+    groupedByOrder.forEach((orderNumber, items) {
+      if (items.isNotEmpty) {
+        final firstItem = items.first;
+
+        mainData.add({
+          'id': id,
+          'date': _gregorianToPersian(firstItem.orderDate),
+          'number': orderNumber,
+          'customer': firstItem.sherkat,
+          'issuer': firstItem.fullPersonName,
+        });
+
+        subData[id] =
+            items.map((item) {
+              final origIdInt = int.tryParse(item.id) ?? 0;
+              if (!subFieldStatuses.containsKey(origIdInt)) {
+                subFieldStatuses[origIdInt] = item.statusString;
+              }
+
+              return {
+                'request_date': _gregorianToPersian(item.date),
+                'product_name': item.title,
+                'request_type': item.requestType,
+                'current_price': item.currentPrice.toInt(),
+                'requested_price': item.requestedPrice.toInt(),
+                'approval_status': item.statusString,
+                'original_id': item.id,
+              };
+            }).toList();
+
+        id++;
+      }
+    });
+
+    // initially filteredData is a copy of mainData
+    filteredData = List.from(mainData);
+
+    // apply filters without setState so that initial display logic can continue properly
+    _applyFiltersWithoutSetState();
+
+    // if a sort was active, reapply it to filteredData
+    if (sortColumnIndex != null) {
+      _applySortMainWithoutSetState(sortColumnIndex!, isAscending);
+    }
+  }
+
+  void _applyFiltersWithoutSetState() {
+    filteredData =
+        mainData.where((item) {
+          if (selectedStatus != 'همه') {
+            final itemId = item['id'];
+            if (subData.containsKey(itemId)) {
+              final hasMatchingStatus = subData[itemId]!.any((subItem) {
+                final currentStatus =
+                    subFieldStatuses[int.tryParse(
+                          subItem['original_id'] ?? '0',
+                        ) ??
+                        0] ??
+                    subItem['approval_status'] ??
+                    'در حال بررسی';
+                return currentStatus == selectedStatus;
+              });
+              if (!hasMatchingStatus) return false;
+            }
+          }
+
+          if (_numberFilterController.text.isNotEmpty &&
+              !item['number'].toString().contains(
+                _numberFilterController.text,
+              )) {
+            return false;
+          }
+
+          if (_customerFilterController.text.isNotEmpty &&
+              !item['customer'].toString().toLowerCase().contains(
+                _customerFilterController.text.toLowerCase(),
+              )) {
+            return false;
+          }
+
+          if (_issuerFilterController.text.isNotEmpty &&
+              !item['issuer'].toString().toLowerCase().contains(
+                _issuerFilterController.text.toLowerCase(),
+              )) {
+            return false;
+          }
+
+          // keywords search (from advanced dialog) - split by space and use AND semantics by default
+          if (_keywordsController.text.isNotEmpty) {
+            final keywords =
+                _keywordsController.text
+                    .split(RegExp(r'\s+'))
+                    .where((k) => k.trim().isNotEmpty)
+                    .map((k) => k.trim().toLowerCase())
+                    .toList();
+            if (keywords.isNotEmpty) {
+              final combined =
+                  '${item['number']} ${item['customer']} ${item['issuer']}'
+                      .toLowerCase();
+              final matchesAll = keywords.every((kw) => combined.contains(kw));
+              if (!matchesAll) return false;
+            }
+          }
+
+          return true;
+        }).toList();
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _applyFiltersWithoutSetState();
+
+      // After filtering, if a sort is active reapply it to filteredData
+      if (sortColumnIndex != null) {
+        _applySortMainWithoutSetState(sortColumnIndex!, isAscending);
+      }
+    });
+  }
+
+  void _applySortMainWithoutSetState(int columnIndex, bool ascending) {
+    filteredData.sort((a, b) {
+      dynamic aValue;
+      dynamic bValue;
+
+      switch (columnIndex) {
+        case 0: // تاریخ
+          aValue = _persianDateToComparable(a['date'].toString());
+          bValue = _persianDateToComparable(b['date'].toString());
+          break;
+        case 1: // شماره
+          aValue = int.tryParse(a['number'].toString()) ?? 0;
+          bValue = int.tryParse(b['number'].toString()) ?? 0;
+          break;
+        case 2: // مشتری
+          aValue = a['customer'].toString();
+          bValue = b['customer'].toString();
+          break;
+        case 3: // صادرکننده
+          aValue = a['issuer'].toString();
+          bValue = b['issuer'].toString();
+          break;
+        default:
+          return 0;
+      }
+
+      int comparison;
+      if (columnIndex <= 1) {
+        comparison = (aValue as int).compareTo(bValue as int);
+      } else {
+        comparison = aValue.toString().compareTo(bValue.toString());
+      }
+
+      return ascending ? comparison : -comparison;
+    });
+  }
+
   void _sortMainTable(int columnIndex) {
     setState(() {
       if (sortColumnIndex == columnIndex) {
@@ -352,48 +410,10 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
         isAscending = true;
       }
 
-      filteredData.sort((a, b) {
-        dynamic aValue;
-        dynamic bValue;
-
-        switch (columnIndex) {
-          case 0:
-            aValue = a['id'];
-            bValue = b['id'];
-            break;
-          case 1:
-            aValue = a['date'];
-            bValue = b['date'];
-            break;
-          case 2:
-            aValue = a['number'];
-            bValue = b['number'];
-            break;
-          case 3:
-            aValue = a['customer'];
-            bValue = b['customer'];
-            break;
-          case 4:
-            aValue = a['issuer'];
-            bValue = b['issuer'];
-            break;
-          default:
-            return 0;
-        }
-
-        int comparison;
-        if (aValue is int && bValue is int) {
-          comparison = aValue.compareTo(bValue);
-        } else {
-          comparison = aValue.toString().compareTo(bValue.toString());
-        }
-
-        return isAscending ? comparison : -comparison;
-      });
+      _applySortMainWithoutSetState(columnIndex, isAscending);
     });
   }
 
-  // Sort sub table
   void _sortSubTable(int parentId, int columnIndex) {
     setState(() {
       if (subSortColumnIndex[parentId] == columnIndex) {
@@ -410,37 +430,43 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
           dynamic bValue;
 
           switch (columnIndex) {
-            case 0:
-              aValue = a['request_date'];
-              bValue = b['request_date'];
+            case 0: // تاریخ درخواست (شمسی نمایش شده اما مقدار ذخیره شمسی هم هست)
+              aValue = _persianDateToComparable(a['request_date'].toString());
+              bValue = _persianDateToComparable(b['request_date'].toString());
               break;
-            case 1:
-              aValue = a['product_name'];
-              bValue = b['product_name'];
+            case 1: // عنوان کالا
+              aValue = a['product_name'].toString();
+              bValue = b['product_name'].toString();
               break;
-            case 2:
-              aValue = a['request_type'];
-              bValue = b['request_type'];
+            case 2: // نوع درخواست
+              aValue = a['request_type'].toString();
+              bValue = b['request_type'].toString();
               break;
-            case 3:
-              aValue = a['current_price'];
-              bValue = b['current_price'];
+            case 3: // مبلغ فعلی
+              aValue = a['current_price'] ?? 0;
+              bValue = b['current_price'] ?? 0;
               break;
-            case 4:
-              aValue = a['requested_price'];
-              bValue = b['requested_price'];
+            case 4: // مبلغ درخواستی
+              aValue = a['requested_price'] ?? 0;
+              bValue = b['requested_price'] ?? 0;
               break;
-            case 5:
-              aValue = a['approval_status'];
-              bValue = b['approval_status'];
+            case 5: // وضعیت
+              final aId = int.tryParse(a['original_id'] ?? '0') ?? 0;
+              final bId = int.tryParse(b['original_id'] ?? '0') ?? 0;
+              aValue = subFieldStatuses[aId] ?? a['approval_status'] ?? '';
+              bValue = subFieldStatuses[bId] ?? b['approval_status'] ?? '';
               break;
             default:
               return 0;
           }
 
           int comparison;
-          if (aValue is int && bValue is int) {
-            comparison = aValue.compareTo(bValue);
+          if (columnIndex == 0 || columnIndex == 3 || columnIndex == 4) {
+            final aNum =
+                (aValue is int) ? aValue : int.tryParse(aValue.toString()) ?? 0;
+            final bNum =
+                (bValue is int) ? bValue : int.tryParse(bValue.toString()) ?? 0;
+            comparison = aNum.compareTo(bNum);
           } else {
             comparison = aValue.toString().compareTo(bValue.toString());
           }
@@ -453,12 +479,15 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.primaryGreen,
-        appBar: _buildAppBar(),
-        body: _buildBody(),
+    return BlocProvider.value(
+      value: _bloc,
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: AppColors.primaryGreen,
+          appBar: _buildAppBar(),
+          body: _buildBody(),
+        ),
       ),
     );
   }
@@ -469,143 +498,268 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.white),
       automaticallyImplyLeading: true,
-      title: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            DateFieldWidget(
-              text: 'از: $fromDate',
-              onTap: () => _selectDate(true),
+      title: BlocBuilder<PriceManagementBloc, PriceManagementState>(
+        builder: (context, state) {
+          final hasChanges = state is PriceManagementLoaded && state.hasChanges;
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                DateFieldWidget(
+                  text: 'از: $fromDate',
+                  onTap: () => _selectDate(true),
+                ),
+                const SizedBox(width: 8),
+                DateFieldWidget(
+                  text: 'تا: $toDate',
+                  onTap: () => _selectDate(false),
+                ),
+                const SizedBox(width: 8),
+                FilterButtonWidget(onTap: _showAdvancedFilterDialog),
+                const SizedBox(width: 8),
+                StatusDropdownWidget(
+                  selectedStatus: selectedStatus,
+                  statusOptions: statusOptions,
+                  onChanged: (newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        selectedStatus = newValue;
+                        // Apply filter on the full mainData (not current filteredData) so appbar filter always
+                        // considers the complete dataset that was loaded from server.
+                        _applyFilters();
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                SaveButtonWidget(
+                  hasChanges: hasChanges,
+                  onTap: () {
+                    _bloc.add(const SaveChangesEvent());
+                  },
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            DateFieldWidget(
-              text: 'تا: $toDate',
-              onTap: () => _selectDate(false),
-            ),
-            const SizedBox(width: 8),
-            FilterButtonWidget(onTap: _showAdvancedFilterDialog),
-            const SizedBox(width: 8),
-            StatusDropdownWidget(
-              selectedStatus: selectedStatus,
-              statusOptions: statusOptions,
-              onChanged: (newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    selectedStatus = newValue;
-                  });
-                  _applyFilters();
-                }
-              },
-            ),
-            const SizedBox(width: 8),
-            SaveButtonWidget(
-              hasChanges: hasChanges,
-              onTap: () {
-                setState(() {
-                  hasChanges = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تغییرات ذخیره شد')),
-                );
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildBody() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            TableHeaderWidget(
-              sortColumnIndex: sortColumnIndex,
-              isAscending: isAscending,
-              onSort: _sortMainTable,
-            ),
-            Expanded(
-              child: Container(
-                color: Colors.white,
-                child:
-                    filteredData.isEmpty
-                        ? const Center(
-                          child: Text(
-                            'داده‌ای یافت نشد',
-                            style: TextStyle(
-                              fontFamily: 'Vazir',
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        )
-                        : ListView.builder(
-                          itemCount: filteredData.length,
-                          itemBuilder: (context, index) {
-                            final item = filteredData[index];
-                            final isExpanded = expandedRows.contains(
-                              item['id'],
-                            );
-                            return Column(
-                              children: [
-                                TableRowWidget(
-                                  item: item,
-                                  isExpanded: isExpanded,
-                                  onTap: () {
-                                    setState(() {
-                                      if (isExpanded) {
-                                        expandedRows.remove(item['id']);
-                                      } else {
-                                        expandedRows.add(item['id']);
-                                      }
-                                    });
-                                  },
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: BlocConsumer<PriceManagementBloc, PriceManagementState>(
+        listener: (context, state) {
+          if (state is PriceManagementError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          } else if (state is PriceManagementSaved) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else if (state is PriceManagementLoaded) {
+            // when loaded, convert to UI format and ensure filters/sorts applied
+            _convertApiDataToUIFormat(state.groupedByOrder);
+          }
+        },
+        builder: (context, state) {
+          if (state is PriceManagementLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state is PriceManagementError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'خطا در دریافت داده‌ها',
+                    style: TextStyle(
+                      fontFamily: 'Vazir',
+                      fontSize: 18,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      state.message,
+                      style: const TextStyle(
+                        fontFamily: 'Vazir',
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _bloc.add(const RefreshPriceRequestsEvent());
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('تلاش مجدد'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (state is PriceManagementLoaded) {
+            return Column(
+              children: [
+                TableHeaderWidget(
+                  sortColumnIndex: sortColumnIndex,
+                  isAscending: isAscending,
+                  onSort: _sortMainTable,
+                ),
+                Expanded(
+                  child: Container(
+                    color: Colors.white,
+                    child:
+                        filteredData.isEmpty
+                            ? const Center(
+                              child: Text(
+                                'داده‌ای یافت نشد',
+                                style: TextStyle(
+                                  fontFamily: 'Vazir',
+                                  fontSize: 14,
+                                  color: Colors.grey,
                                 ),
-                                if (isExpanded) ...[
-                                  const SizedBox(height: 8),
-                                  if (subData.containsKey(item['id']))
-                                    SubTableWidget(
-                                      parentId: item['id'],
-                                      subItems: subData[item['id']]!,
-                                      subFieldStatuses: subFieldStatuses,
-                                      statusOptions: statusOptions,
-                                      sortColumnIndex:
-                                          subSortColumnIndex[item['id']],
-                                      isAscending:
-                                          subIsAscending[item['id']] ?? true,
-                                      onSort:
-                                          (index) =>
-                                              _sortSubTable(item['id'], index),
-                                      onStatusChange: (id, status) {
+                              ),
+                            )
+                            : ListView.builder(
+                              itemCount: filteredData.length,
+                              itemBuilder: (context, index) {
+                                final item = filteredData[index];
+                                final isExpanded = expandedRows.contains(
+                                  item['id'],
+                                );
+
+                                return Column(
+                                  children: [
+                                    TableRowWidget(
+                                      item: item,
+                                      isExpanded: isExpanded,
+                                      onTap: () {
                                         setState(() {
-                                          subFieldStatuses[id] = status;
-                                          hasChanges = true;
+                                          if (isExpanded) {
+                                            expandedRows.remove(item['id']);
+                                          } else {
+                                            expandedRows.add(item['id']);
+                                          }
                                         });
                                       },
                                     ),
-                                  const SizedBox(height: 8),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
+                                    if (isExpanded) ...[
+                                      const SizedBox(height: 8),
+                                      if (subData.containsKey(item['id']))
+                                        SubTableWidget(
+                                          parentId: item['id'],
+                                          subItems: subData[item['id']]!,
+                                          subFieldStatuses: subFieldStatuses,
+                                          statusOptions: statusOptions,
+                                          sortColumnIndex:
+                                              subSortColumnIndex[item['id']],
+                                          isAscending:
+                                              subIsAscending[item['id']] ??
+                                              true,
+                                          onSort:
+                                              (colIndex) => _sortSubTable(
+                                                item['id'],
+                                                colIndex,
+                                              ),
+                                          onStatusChange: (id, status) {
+                                            setState(() {
+                                              subFieldStatuses[id] = status;
+
+                                              final subItem =
+                                                  subData[item['id']]!
+                                                      .firstWhere(
+                                                        (s) =>
+                                                            int.tryParse(
+                                                              s['original_id'] ??
+                                                                  '0',
+                                                            ) ==
+                                                            id,
+                                                        orElse: () => {},
+                                                      );
+
+                                              if (subItem.isNotEmpty &&
+                                                  subItem['original_id'] !=
+                                                      null) {
+                                                subItem['approval_status'] =
+                                                    status;
+
+                                                final originalId =
+                                                    subItem['original_id'];
+
+                                                int statusCode = 1;
+                                                if (status == 'تایید شده')
+                                                  statusCode = 2;
+                                                if (status == 'رد شده')
+                                                  statusCode = 3;
+
+                                                _bloc.add(
+                                                  UpdatePriceRequestStatusEvent(
+                                                    requestId: originalId,
+                                                    newStatus: statusCode,
+                                                  ),
+                                                );
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  ],
+                                );
+                              },
+                            ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return const Center(
+            child: Text(
+              'لطفاً فیلترها را انتخاب کرده و جستجو کنید',
+              style: TextStyle(
+                fontFamily: 'Vazir',
+                fontSize: 14,
+                color: Colors.grey,
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

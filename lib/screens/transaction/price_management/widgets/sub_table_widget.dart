@@ -1,7 +1,8 @@
 import 'package:apma_app/core/constants/app_colors.dart';
+import 'package:apma_app/shared/widgets/persian_date_picker/persian_date_utils.dart';
 import 'package:flutter/material.dart';
 
-class SubTableWidget extends StatelessWidget {
+class SubTableWidget extends StatefulWidget {
   final int parentId;
   final List<Map<String, dynamic>> subItems;
   final Map<int, String> subFieldStatuses;
@@ -24,13 +25,18 @@ class SubTableWidget extends StatelessWidget {
   });
 
   @override
+  State<SubTableWidget> createState() => _SubTableWidgetState();
+}
+
+class _SubTableWidgetState extends State<SubTableWidget> {
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           _buildHeader(),
-          ...subItems.map((subItem) => _buildRow(subItem)).toList(),
+          ...widget.subItems.map((subItem) => _buildRow(subItem)).toList(),
         ],
       ),
     );
@@ -66,6 +72,19 @@ class SubTableWidget extends StatelessWidget {
   }
 
   Widget _buildRow(Map<String, dynamic> subItem) {
+    final itemId = int.tryParse(subItem['original_id'] ?? '0') ?? 0;
+    // استفاده از subFieldStatuses که آپدیت میشه
+    final currentStatus =
+        widget.subFieldStatuses[itemId] ??
+        subItem['approval_status'] ??
+        'در حال بررسی';
+    final isEditable = currentStatus == 'در حال بررسی';
+
+    // تبدیل تاریخ میلادی به شمسی
+    final requestDate = PersianDateUtils.gregorianToJalali(
+      subItem['request_date'],
+    );
+
     return Column(
       children: [
         Container(
@@ -74,7 +93,7 @@ class SubTableWidget extends StatelessWidget {
           child: IntrinsicHeight(
             child: Row(
               children: [
-                _buildSubCell(subItem['request_date'], flex: 2),
+                _buildSubCell(requestDate, flex: 2),
                 _buildDivider(dark: true),
                 _buildSubCell(subItem['product_name'], flex: 2),
                 _buildDivider(dark: true),
@@ -84,7 +103,7 @@ class SubTableWidget extends StatelessWidget {
                 _buildDivider(dark: true),
                 _buildSubCell(subItem['requested_price'].toString(), flex: 2),
                 _buildDivider(dark: true),
-                _buildDropdownCell(),
+                _buildDropdownCell(itemId, currentStatus, isEditable),
               ],
             ),
           ),
@@ -99,11 +118,11 @@ class SubTableWidget extends StatelessWidget {
     required int flex,
     required int index,
   }) {
-    final isActive = sortColumnIndex == index;
+    final isActive = widget.sortColumnIndex == index;
     return Expanded(
       flex: flex,
       child: InkWell(
-        onTap: () => onSort(index),
+        onTap: () => widget.onSort(index),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -123,7 +142,9 @@ class SubTableWidget extends StatelessWidget {
             const SizedBox(width: 4),
             Icon(
               isActive
-                  ? (isAscending ? Icons.arrow_upward : Icons.arrow_downward)
+                  ? (widget.isAscending
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward)
                   : Icons.unfold_more,
               color: Colors.white,
               size: 14,
@@ -150,7 +171,7 @@ class SubTableWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildDropdownCell() {
+  Widget _buildDropdownCell(int itemId, String currentStatus, bool isEditable) {
     return Expanded(
       flex: 2,
       child: Center(
@@ -158,61 +179,77 @@ class SubTableWidget extends StatelessWidget {
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isEditable ? Colors.white : Colors.grey[200],
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.primaryGreen, width: 1),
+            border: Border.all(
+              color: isEditable ? AppColors.primaryGreen : Colors.grey,
+              width: 1,
+            ),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: subFieldStatuses[parentId],
-              dropdownColor: Colors.white,
-              isDense: true,
-              alignment: Alignment.centerRight,
-              style: const TextStyle(
-                fontFamily: 'Vazir',
-                fontSize: 9,
-                color: Colors.black87,
-              ),
-              selectedItemBuilder: (BuildContext context) {
-                return statusOptions.skip(1).map((String value) {
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      value,
+          child:
+              isEditable
+                  ? DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: currentStatus,
+                      dropdownColor: Colors.white,
+                      isDense: true,
+                      alignment: Alignment.centerRight,
                       style: const TextStyle(
                         fontFamily: 'Vazir',
                         fontSize: 9,
                         color: Colors.black87,
                       ),
-                      textDirection: TextDirection.rtl,
-                      overflow: TextOverflow.ellipsis,
+                      selectedItemBuilder: (BuildContext context) {
+                        return widget.statusOptions.skip(1).map((String value) {
+                          return Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              value,
+                              style: const TextStyle(
+                                fontFamily: 'Vazir',
+                                fontSize: 9,
+                                color: Colors.black87,
+                              ),
+                              textDirection: TextDirection.rtl,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items:
+                          widget.statusOptions.skip(1).map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                value,
+                                style: const TextStyle(
+                                  fontFamily: 'Vazir',
+                                  fontSize: 9,
+                                ),
+                                textDirection: TextDirection.rtl,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          widget.onStatusChange(itemId, newValue);
+                        }
+                      },
                     ),
-                  );
-                }).toList();
-              },
-              items:
-                  statusOptions.skip(1).map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        value,
-                        style: const TextStyle(
-                          fontFamily: 'Vazir',
-                          fontSize: 9,
-                        ),
-                        textDirection: TextDirection.rtl,
-                        overflow: TextOverflow.ellipsis,
+                  )
+                  : Center(
+                    child: Text(
+                      currentStatus,
+                      style: const TextStyle(
+                        fontFamily: 'Vazir',
+                        fontSize: 9,
+                        color: Colors.black54,
                       ),
-                    );
-                  }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  onStatusChange(parentId, newValue);
-                }
-              },
-            ),
-          ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
         ),
       ),
     );

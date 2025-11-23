@@ -64,4 +64,29 @@ class PersianDateUtils {
     final daysInMonth = now.monthLength;
     return formatDate(Jalali(now.year, now.month, daysInMonth));
   }
+
+  /// تبدیل تاریخ میلادی به شمسی
+  static String gregorianToJalali(String? gregorianDate) {
+    if (gregorianDate == null || gregorianDate.isEmpty) {
+      return '';
+    }
+
+    try {
+      final parts = gregorianDate.split('-');
+      if (parts.length != 3) {
+        return gregorianDate;
+      }
+
+      final gy = int.parse(parts[0]);
+      final gm = int.parse(parts[1]);
+      final gd = int.parse(parts[2]);
+
+      final gregorian = Gregorian(gy, gm, gd);
+      final jalali = gregorian.toJalali();
+
+      return formatDate(jalali);
+    } catch (e) {
+      return gregorianDate;
+    }
+  }
 }
