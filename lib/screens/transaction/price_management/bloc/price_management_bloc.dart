@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:apma_app/screens/transaction/price_management/bloc/price_management_event.dart';
 import 'package:apma_app/screens/transaction/price_management/bloc/price_management_state.dart';
 import 'package:apma_app/screens/transaction/price_management/services/price_request_service.dart';
-import 'package:apma_app/screens/transaction/price_management/models/price_request_model.dart';
 
 class PriceManagementBloc
     extends Bloc<PriceManagementEvent, PriceManagementState> {

@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 class SubTableWidget extends StatefulWidget {
   final int parentId;
   final List<Map<String, dynamic>> subItems;
-  final Map<int, String> subFieldStatuses;
+  final Map<String, String> subFieldStatuses;
   final List<String> statusOptions;
   final int? sortColumnIndex;
   final bool isAscending;
   final Function(int) onSort;
-  final Function(int, String) onStatusChange;
+  final Function(String, String) onStatusChange;
 
   const SubTableWidget({
     super.key,
@@ -53,15 +53,15 @@ class _SubTableWidgetState extends State<SubTableWidget> {
               children: [
                 _buildSortableHeader('تاریخ درخواست', flex: 2, index: 0),
                 _buildDivider(),
-                _buildSortableHeader('عنوان کالا', flex: 2, index: 1),
+                _buildSortableHeader('عنوان کالا', flex: 3, index: 1),
                 _buildDivider(),
                 _buildSortableHeader('نوع درخواست', flex: 2, index: 2),
                 _buildDivider(),
                 _buildSortableHeader('مبلغ فعلی', flex: 2, index: 3),
                 _buildDivider(),
-                _buildSortableHeader('مبلغ درخواست شده', flex: 2, index: 4),
+                _buildSortableHeader('مبلغ درخواستی', flex: 2, index: 4),
                 _buildDivider(),
-                _buildSortableHeader('وضعیت تایید', flex: 2, index: 5),
+                _buildSortableHeader('وضعیت', flex: 2, index: 5),
               ],
             ),
           ),
@@ -72,15 +72,13 @@ class _SubTableWidgetState extends State<SubTableWidget> {
   }
 
   Widget _buildRow(Map<String, dynamic> subItem) {
-    final itemId = int.tryParse(subItem['original_id'] ?? '0') ?? 0;
-    // استفاده از subFieldStatuses که آپدیت میشه
+    final originalId = subItem['original_id']?.toString() ?? '';
     final currentStatus =
-        widget.subFieldStatuses[itemId] ??
+        widget.subFieldStatuses[originalId] ??
         subItem['approval_status'] ??
         'در حال بررسی';
     final isEditable = currentStatus == 'در حال بررسی';
 
-    // تبدیل تاریخ میلادی به شمسی
     final requestDate = PersianDateUtils.gregorianToJalali(
       subItem['request_date'],
     );
@@ -93,17 +91,23 @@ class _SubTableWidgetState extends State<SubTableWidget> {
           child: IntrinsicHeight(
             child: Row(
               children: [
-                _buildSubCell(requestDate, flex: 2),
-                _buildDivider(dark: true),
-                _buildSubCell(subItem['product_name'], flex: 2),
-                _buildDivider(dark: true),
-                _buildSubCell(subItem['request_type'], flex: 2),
-                _buildDivider(dark: true),
-                _buildSubCell(subItem['current_price'].toString(), flex: 2),
-                _buildDivider(dark: true),
-                _buildSubCell(subItem['requested_price'].toString(), flex: 2),
-                _buildDivider(dark: true),
-                _buildDropdownCell(itemId, currentStatus, isEditable),
+                _buildCell(requestDate, flex: 2),
+                _buildDivider(),
+                _buildCell(subItem['product_name'] ?? '', flex: 3),
+                _buildDivider(),
+                _buildCell(subItem['request_type'] ?? '', flex: 2),
+                _buildDivider(),
+                _buildCell(
+                  subItem['current_price']?.toString() ?? '0',
+                  flex: 2,
+                ),
+                _buildDivider(),
+                _buildCell(
+                  subItem['requested_price']?.toString() ?? '0',
+                  flex: 2,
+                ),
+                _buildDivider(),
+                _buildDropdownCell(originalId, currentStatus, isEditable),
               ],
             ),
           ),
@@ -146,8 +150,8 @@ class _SubTableWidgetState extends State<SubTableWidget> {
                       ? Icons.arrow_upward
                       : Icons.arrow_downward)
                   : Icons.unfold_more,
-              color: Colors.white,
               size: 14,
+              color: Colors.white,
             ),
           ],
         ),
@@ -155,23 +159,29 @@ class _SubTableWidgetState extends State<SubTableWidget> {
     );
   }
 
-  Widget _buildSubCell(String text, {required int flex}) {
+  Widget _buildCell(String text, {required int flex}) {
     return Expanded(
       flex: flex,
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontFamily: 'Vazir',
-          fontSize: 11,
-          color: Colors.black87,
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Vazir',
+            fontSize: 9,
+            color: Colors.black87,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  Widget _buildDropdownCell(int itemId, String currentStatus, bool isEditable) {
+  Widget _buildDropdownCell(
+    String itemId,
+    String currentStatus,
+    bool isEditable,
+  ) {
     return Expanded(
       flex: 2,
       child: Center(
@@ -255,11 +265,7 @@ class _SubTableWidgetState extends State<SubTableWidget> {
     );
   }
 
-  Widget _buildDivider({bool dark = false}) {
-    return Container(
-      width: 1,
-      color:
-          dark ? Colors.black.withOpacity(0.1) : Colors.white.withOpacity(0.3),
-    );
+  Widget _buildDivider() {
+    return Container(width: 1, color: Colors.white.withOpacity(0.3));
   }
 }
