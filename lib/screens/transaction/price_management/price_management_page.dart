@@ -59,6 +59,8 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   List<Map<String, dynamic>> mainData = [];
   List<Map<String, dynamic>> filteredData = [];
   Map<int, List<Map<String, dynamic>>> subData = {};
+  Map<int, List<Map<String, dynamic>>> originalSubData =
+      {}; // نگهداری داده‌های اصلی
 
   @override
   void initState() {
@@ -83,16 +85,9 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   }
 
   void _loadData() {
-    final now = Jalali.now();
-    final lastDay = Jalali(now.year, 12).monthLength;
-    final currentYearStart = '${now.year}/01/01';
-    final currentYearEnd = '${now.year}/12/$lastDay';
-
-    final bool isFullYear =
-        fromDate == currentYearStart && toDate == currentYearEnd;
-    final fromDateGregorian =
-        isFullYear ? 'NULL' : _persianToGregorian(fromDate);
-    final toDateGregorian = isFullYear ? 'NULL' : _persianToGregorian(toDate);
+    // تبدیل تاریخ‌های شمسی به میلادی برای ارسال به سرور
+    final fromDateGregorian = _persianToGregorian(fromDate);
+    final toDateGregorian = _persianToGregorian(toDate);
 
     _bloc.add(
       LoadPriceRequestsEvent(
@@ -163,6 +158,7 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   void _convertApiDataToUIFormat(Map<String, List<PriceRequestModel>> grouped) {
     mainData.clear();
     subData.clear();
+    originalSubData.clear(); // پاک کردن داده‌های قبلی
     subFieldStatuses.clear();
     int id = 1;
 
@@ -195,6 +191,9 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
               };
             }).toList();
 
+        // ذخیره یک کپی از داده‌های اصلی
+        originalSubData[id] = List.from(subData[id]!);
+
         id++;
       }
     });
@@ -208,26 +207,54 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   }
 
   void _applyFiltersWithoutSetState() {
+    // اگر فیلتر "همه" انتخاب شده
     if (selectedStatus == 'همه') {
       filteredData = List.from(mainData);
+      // بازسازی subData از originalSubData
+      subData.clear();
+      originalSubData.forEach((key, value) {
+        subData[key] = List.from(value);
+        // آپدیت کردن وضعیت‌ها بر اساس subFieldStatuses
+        subData[key]!.forEach((item) {
+          final origId = item['original_id']?.toString() ?? '';
+          if (subFieldStatuses.containsKey(origId)) {
+            item['approval_status'] = subFieldStatuses[origId];
+          }
+        });
+      });
     } else {
+      // فیلتر کردن بر اساس وضعیت انتخابی
       filteredData = [];
+      subData.clear();
 
       for (var item in mainData) {
         final id = item['id'];
 
-        if (subData[id] == null) continue;
+        if (!originalSubData.containsKey(id)) continue;
 
+        // فیلتر کردن آیتم‌های فرعی
         final matchingSubItems =
-            subData[id]!.where((s) {
-              final origId = s['original_id']?.toString() ?? '';
-              final currentStatus =
-                  subFieldStatuses.containsKey(origId)
-                      ? subFieldStatuses[origId]
-                      : s['approval_status'];
+            originalSubData[id]!
+                .where((s) {
+                  final origId = s['original_id']?.toString() ?? '';
+                  // همیشه از آخرین وضعیت در subFieldStatuses استفاده کن
+                  final currentStatus =
+                      subFieldStatuses.containsKey(origId)
+                          ? subFieldStatuses[origId]
+                          : s['approval_status'];
 
-              return currentStatus == selectedStatus;
-            }).toList();
+                  return currentStatus == selectedStatus;
+                })
+                .map((item) {
+                  // کپی آیتم با وضعیت آپدیت شده
+                  var newItem = Map<String, dynamic>.from(item);
+                  final origId = newItem['original_id']?.toString() ?? '';
+                  if (subFieldStatuses.containsKey(origId)) {
+                    newItem['approval_status'] = subFieldStatuses[origId];
+                  }
+                  return newItem;
+                })
+                .toList();
 
         if (matchingSubItems.isNotEmpty) {
           final newId = filteredData.length + 1;
@@ -245,6 +272,7 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
       }
     }
 
+    // اعمال فیلترهای متنی
     if (_numberFilterController.text.isNotEmpty) {
       filteredData =
           filteredData
@@ -503,7 +531,30 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
                                       isAscending: subIsAscending[id] ?? true,
                                       onSort: (c) => _sortSubTable(id, c),
                                       onStatusChange: (subId, status) {
+                                        // آپدیت وضعیت در subFieldStatuses
                                         subFieldStatuses[subId] = status;
+
+                                        // آپدیت وضعیت در originalSubData
+                                        originalSubData.forEach((key, items) {
+                                          for (var item in items) {
+                                            if (item['original_id']
+                                                    ?.toString() ==
+                                                subId) {
+                                              item['approval_status'] = status;
+                                            }
+                                          }
+                                        });
+
+                                        // آپدیت وضعیت در subData فعلی
+                                        subData.forEach((key, items) {
+                                          for (var item in items) {
+                                            if (item['original_id']
+                                                    ?.toString() ==
+                                                subId) {
+                                              item['approval_status'] = status;
+                                            }
+                                          }
+                                        });
 
                                         int statusCode = 1;
                                         if (status == 'تایید شده')

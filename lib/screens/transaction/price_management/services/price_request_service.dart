@@ -16,9 +16,10 @@ class PriceRequestService {
     String criteria = '',
   }) async {
     try {
+      // اگر تاریخ خالی یا null است، NULL ارسال کنید
       final Map<String, dynamic> filterData = {
-        'FromDate': fromDate ?? 'NULL',
-        'ToDate': toDate ?? 'NULL',
+        'FromDate': (fromDate == null || fromDate.isEmpty) ? 'NULL' : fromDate,
+        'ToDate': (toDate == null || toDate.isEmpty) ? 'NULL' : toDate,
         'Status': status,
         'Criteria': criteria,
       };

@@ -107,6 +107,8 @@ class PriceRequestModel {
 
   String get statusString {
     switch (confirmationStatus) {
+      case 0:
+        return 'در حال بررسی'; // یا می‌توانید 'ثبت شده' استفاده کنید
       case 1:
         return 'در حال بررسی';
       case 2:
@@ -114,7 +116,7 @@ class PriceRequestModel {
       case 3:
         return 'رد شده';
       default:
-        return 'نامشخص';
+        return 'در حال بررسی'; // به جای "نامشخص" از حالت پیش‌فرض معقول استفاده می‌کنیم
     }
   }
 
