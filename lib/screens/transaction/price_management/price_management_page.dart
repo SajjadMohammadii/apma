@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:apma_app/core/constants/app_colors.dart';
 import 'package:apma_app/core/network/soap_client.dart';
 import 'package:apma_app/core/di/injection_container.dart';
@@ -9,7 +10,6 @@ import 'package:apma_app/screens/transaction/price_management/models/price_reque
 import 'package:apma_app/screens/transaction/price_management/widgets/advanced_filter_dialog.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/date_field_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/filter_button_widget.dart';
-import 'package:apma_app/screens/transaction/price_management/widgets/save_button_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/status_dropdown_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/table_header_widget.dart';
 import 'package:apma_app/screens/transaction/price_management/widgets/table_row_widget.dart';
@@ -55,6 +55,8 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   final TextEditingController _keywordsController = TextEditingController();
 
   late PriceManagementBloc _bloc;
+  Timer? _autoRefreshTimer;
+  bool _isAutoRefreshEnabled = true;
 
   List<Map<String, dynamic>> mainData = [];
   List<Map<String, dynamic>> filteredData = [];
@@ -82,6 +84,29 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
     _bloc = PriceManagementBloc(priceRequestService: service);
 
     _loadData();
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_isAutoRefreshEnabled) {
+        _loadDataSilently();
+      }
+    });
+  }
+
+  void _loadDataSilently() {
+    final fromDateGregorian = _persianToGregorian(fromDate);
+    final toDateGregorian = _persianToGregorian(toDate);
+
+    _bloc.add(
+      LoadPriceRequestsEvent(
+        fromDate: fromDateGregorian,
+        toDate: toDateGregorian,
+        status: 0,
+        criteria: _keywordsController.text,
+      ),
+    );
   }
 
   void _loadData() {
@@ -143,6 +168,7 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -156,12 +182,12 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
   }
 
   void _convertApiDataToUIFormat(Map<String, List<PriceRequestModel>> grouped) {
+    // همیشه همه داده‌ها را از نو بسازیم
     mainData.clear();
     subData.clear();
-    originalSubData.clear(); // پاک کردن داده‌های قبلی
-    subFieldStatuses.clear();
-    int id = 1;
+    originalSubData.clear();
 
+    int id = 1;
     grouped.forEach((orderNumber, items) {
       if (items.isNotEmpty) {
         final first = items.first;
@@ -176,6 +202,13 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
 
         subData[id] =
             items.map((item) {
+              // استفاده از وضعیت ذخیره شده در subFieldStatuses یا وضعیت سرور
+              final status =
+                  subFieldStatuses.containsKey(item.id)
+                      ? subFieldStatuses[item.id]!
+                      : item.statusString;
+
+              // اگر وضعیت در subFieldStatuses نبود، اضافه کن
               if (!subFieldStatuses.containsKey(item.id)) {
                 subFieldStatuses[item.id] = item.statusString;
               }
@@ -186,14 +219,12 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
                 'request_type': item.requestType,
                 'current_price': item.currentPrice.toInt(),
                 'requested_price': item.requestedPrice.toInt(),
-                'approval_status': item.statusString,
+                'approval_status': status,
                 'original_id': item.id,
               };
             }).toList();
 
-        // ذخیره یک کپی از داده‌های اصلی
         originalSubData[id] = List.from(subData[id]!);
-
         id++;
       }
     });
@@ -429,44 +460,30 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
       backgroundColor: AppColors.primaryGreen,
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.white),
-      title: BlocBuilder<PriceManagementBloc, PriceManagementState>(
-        builder: (context, state) {
-          final hasChanges = state is PriceManagementLoaded && state.hasChanges;
-
-          return Row(
-            children: [
-              DateFieldWidget(
-                text: 'از: $fromDate',
-                onTap: () => _selectDate(true),
-              ),
-              const SizedBox(width: 6),
-              DateFieldWidget(
-                text: 'تا: $toDate',
-                onTap: () => _selectDate(false),
-              ),
-              const SizedBox(width: 6),
-              FilterButtonWidget(onTap: _showAdvancedFilterDialog),
-              const SizedBox(width: 6),
-              StatusDropdownWidget(
-                selectedStatus: selectedStatus,
-                statusOptions: statusOptions,
-                onChanged: (v) {
-                  if (v != null) {
-                    setState(() {
-                      selectedStatus = v;
-                      _applyFilters();
-                    });
-                  }
-                },
-              ),
-              const SizedBox(width: 6),
-              SaveButtonWidget(
-                hasChanges: hasChanges,
-                onTap: () => _bloc.add(const SaveChangesEvent()),
-              ),
-            ],
-          );
-        },
+      title: Row(
+        children: [
+          DateFieldWidget(
+            text: 'از: $fromDate',
+            onTap: () => _selectDate(true),
+          ),
+          const SizedBox(width: 6),
+          DateFieldWidget(text: 'تا: $toDate', onTap: () => _selectDate(false)),
+          const SizedBox(width: 6),
+          FilterButtonWidget(onTap: _showAdvancedFilterDialog),
+          const SizedBox(width: 6),
+          StatusDropdownWidget(
+            selectedStatus: selectedStatus,
+            statusOptions: statusOptions,
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  selectedStatus = v;
+                  _applyFilters();
+                });
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -478,18 +495,19 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: BlocConsumer<PriceManagementBloc, PriceManagementState>(
+      child: BlocListener<PriceManagementBloc, PriceManagementState>(
         listener: (context, state) {
           if (state is PriceManagementLoaded) {
-            _convertApiDataToUIFormat(state.groupedByOrder);
+            setState(() {
+              _convertApiDataToUIFormat(state.groupedByOrder);
+            });
           }
         },
-        builder: (context, state) {
-          if (state is PriceManagementLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (state is PriceManagementLoaded) {
+        child: BlocBuilder<PriceManagementBloc, PriceManagementState>(
+          buildWhen: (previous, current) {
+            return false;
+          },
+          builder: (context, state) {
             return Column(
               children: [
                 TableHeaderWidget(
@@ -581,10 +599,8 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
                 ),
               ],
             );
-          }
-
-          return const Center(child: Text('فیلتر را اعمال کنید'));
-        },
+          },
+        ),
       ),
     );
   }

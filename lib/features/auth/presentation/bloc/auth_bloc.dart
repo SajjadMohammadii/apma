@@ -55,6 +55,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           username: userModel.username,
           name: userModel.name ?? '',
           token: userModel.token ?? '',
+          role: userModel.role,
         );
         emit(AuthAuthenticated(user, showSavePasswordDialog: true));
       });
@@ -92,6 +93,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           username: userModel.username,
           name: userModel.name ?? '',
           token: userModel.token ?? '',
+          role: userModel.role,
         );
         emit(AuthAuthenticated(user, showSavePasswordDialog: false));
       });

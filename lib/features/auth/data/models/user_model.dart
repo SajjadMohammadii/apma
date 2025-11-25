@@ -13,6 +13,7 @@ class UserModel extends User {
     super.email,
     super.name,
     super.avatar,
+    super.role,
     this.token,
   });
 
@@ -24,6 +25,7 @@ class UserModel extends User {
       email: json['email'] as String?,
       name: json['name'] as String?,
       avatar: json['avatar'] as String?,
+      role: json['role'] as String?,
       token: json['token'] as String?,
     );
   }
@@ -36,6 +38,7 @@ class UserModel extends User {
       'email': email,
       'name': name,
       'avatar': avatar,
+      'role': role,
       'token': token,
     };
   }
@@ -48,6 +51,7 @@ class UserModel extends User {
       email: xmlData['Email'] ?? xmlData['email'],
       name: xmlData['Name'] ?? xmlData['name'],
       avatar: xmlData['Avatar'] ?? xmlData['avatar'],
+      role: xmlData['Role'] ?? xmlData['role'],
       token: xmlData['Token'] ?? xmlData['token'],
     );
   }
@@ -59,6 +63,7 @@ class UserModel extends User {
     String? email,
     String? name,
     String? avatar,
+    String? role,
     String? token,
   }) {
     return UserModel(
@@ -67,6 +72,7 @@ class UserModel extends User {
       email: email ?? this.email,
       name: name ?? this.name,
       avatar: avatar ?? this.avatar,
+      role: role ?? this.role,
       token: token ?? this.token,
     );
   }

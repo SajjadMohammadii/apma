@@ -63,14 +63,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       final userId = resultJson['ID'] ?? '';
       final name = resultJson['Name'] ?? username;
+      final role = resultJson['Role'] ?? resultJson['PersonRole'] ?? 'کاربر';
 
-      developer.log('✅ ورود موفق: $name (ID: $userId)');
+      developer.log('✅ ورود موفق: $name (ID: $userId, Role: $role)');
 
       return UserModel(
         id: userId,
         username: username,
         email: '$username@apmaco.com',
         name: name,
+        role: role,
         token: userId,
       );
     } catch (e) {
@@ -100,6 +102,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         username: userJson['Username'] ?? '',
         email: userJson['Email'] ?? '',
         name: userJson['Name'] ?? '',
+        role: userJson['Role'] ?? userJson['PersonRole'] ?? 'کاربر',
         token: userId,
       );
     } catch (e) {

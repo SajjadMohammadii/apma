@@ -3,22 +3,29 @@ import 'package:apma_app/core/constants/app_constant.dart';
 import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:apma_app/features/auth/presentation/bloc/auth_event.dart';
 import 'package:apma_app/features/auth/presentation/bloc/auth_state.dart';
+import 'package:apma_app/screens/%20notifications/notification_page.dart';
 import 'package:apma_app/screens/auth/login_page.dart';
+
 import 'package:apma_app/screens/transaction/transaction.dart';
+import 'package:apma_app/screens/messages/messages_page.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HomePage extends StatefulWidget {
   final String username;
   final String? name;
+  final String? role;
 
-  const HomePage({super.key, required this.username, this.name});
+  const HomePage({super.key, required this.username, this.name, this.role});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  int _selectedIndex = 0;
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -40,18 +47,22 @@ class _HomePageState extends State<HomePage> {
           leading: IconButton(
             icon: const Icon(Icons.message_outlined, size: 24),
             onPressed: () {
-              ScaffoldMessenger.of(
+              Navigator.push(
                 context,
-              ).showSnackBar(const SnackBar(content: Text('صفحه پیام‌ها')));
+                MaterialPageRoute(builder: (context) => const MessagesPage()),
+              );
             },
           ),
           actions: [
             IconButton(
               icon: const Icon(Icons.notifications_outlined, size: 24),
               onPressed: () {
-                ScaffoldMessenger.of(
+                Navigator.push(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('اعلان‌ها')));
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsPage(),
+                  ),
+                );
               },
             ),
             Builder(
@@ -71,9 +82,410 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.all(AppConstants.paddingMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [_buildUserCard(context), const SizedBox(height: 20)],
+              children: [
+                _buildUserCard(context),
+                const SizedBox(height: 20),
+                _buildTabBar(),
+                const SizedBox(height: 16),
+                _buildTabContent(),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primaryPurple, Color(0xFF8882B2)],
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _buildTabItem(title: 'اطلاعیه ها', index: 0),
+            _buildTabItem(title: 'زمان های کاری', index: 1),
+            _buildTabItem(title: 'فعالیت ها', index: 2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem({required String title, required int index}) {
+    final isSelected = _selectedIndex == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            border:
+                isSelected
+                    ? Border(
+                      bottom: BorderSide(
+                        color: AppColors.inputBackground,
+                        width: 3,
+                      ),
+                    )
+                    : null,
+          ),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color:
+                  isSelected
+                      ? AppColors.primaryOrange
+                      : AppColors.inputBackground,
+              fontFamily: 'Vazir',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildNotificationsContent();
+      case 1:
+        return _buildWorkHoursContent();
+      case 2:
+        return _buildActivitiesContent();
+      default:
+        return _buildNotificationsContent();
+    }
+  }
+
+  Widget _buildNotificationsContent() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'اطلاعیه های جدید',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildNotificationItem(
+              title: 'بروزرسانی سیستم',
+              subtitle: 'سیستم در تاریخ ۱۴۰۳/۰۹/۰۵ بروزرسانی خواهد شد',
+              time: '۲ ساعت پیش',
+              isNew: true,
+            ),
+            _buildNotificationItem(
+              title: 'جلسه هفتگی',
+              subtitle: 'جلسه بررسی عملکرد هفتگی فردا برگزار می‌شود',
+              time: '۱ روز پیش',
+              isNew: true,
+            ),
+            _buildNotificationItem(
+              title: 'تعطیلی پیش رو',
+              subtitle: 'به مناسبت میلاد پیامبر اکرم، شرکت تعطیل است',
+              time: '۳ روز پیش',
+              isNew: false,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkHoursContent() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'زمان‌های کاری',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildWorkHourItem(day: 'شنبه تا چهارشنبه', hours: '۸:۰۰ - ۱۷:۰۰'),
+            _buildWorkHourItem(day: 'پنجشنبه', hours: '۸:۰۰ - 13:۰۰'),
+            _buildWorkHourItem(day: 'جمعه', hours: 'تعطیل'),
+            const SizedBox(height: 16),
+            const Text(
+              'زمان کاری امروز: ۸:۰۰ - ۱۷:۰۰',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Vazir',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivitiesContent() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'فعالیت‌های امروز',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildActivityItem(
+              title: 'ثبت درخواست قیمت',
+              count: 5,
+              color: AppColors.primaryGreen,
+            ),
+            _buildActivityItem(
+              title: 'تایید درخواست',
+              count: 3,
+              color: Colors.blue,
+            ),
+            _buildActivityItem(
+              title: 'رد درخواست',
+              count: 1,
+              color: Colors.orange,
+            ),
+            _buildActivityItem(
+              title: 'در حال بررسی',
+              count: 2,
+              color: Colors.purple,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem({
+    required String title,
+    required String subtitle,
+    required String time,
+    required bool isNew,
+  }) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[500],
+                fontFamily: 'Vazir',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      if (isNew) ...[
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Expanded(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                            fontFamily: 'Vazir',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontFamily: 'Vazir',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkHourItem({required String day, required String hours}) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              day,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            Text(
+              hours,
+              style: TextStyle(
+                fontSize: 14,
+                color: hours == 'تعطیل' ? Colors.red : AppColors.primaryGreen,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Vazir',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityItem({
+    required String title,
+    required int count,
+    required Color color,
+  }) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -90,7 +502,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [AppColors.primaryPurple, Color(0xFF8882B2)],
                     begin: Alignment.centerRight,
                     end: Alignment.centerLeft,
@@ -150,7 +562,6 @@ class _HomePageState extends State<HomePage> {
                   Navigator.pop(context);
                 },
               ),
-
               _buildDrawerItemWithImage(
                 context,
                 imagePath: 'assets/images/transaction.png',
@@ -205,21 +616,24 @@ class _HomePageState extends State<HomePage> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    return ListTile(
-      leading: Image.asset(
-        imagePath,
-        width: 24,
-        height: 24,
-        color: color ?? AppColors.textPrimary,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: ListTile(
+        leading: Image.asset(
+          imagePath,
+          width: 24,
+          height: 24,
           color: color ?? AppColors.textPrimary,
-          fontFamily: 'Vazir',
         ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: color ?? AppColors.textPrimary,
+            fontFamily: 'Vazir',
+          ),
+        ),
+        onTap: onTap,
       ),
-      onTap: onTap,
     );
   }
 
@@ -248,7 +662,7 @@ class _HomePageState extends State<HomePage> {
           const Flexible(
             flex: 0,
             child: Text(
-              'خوش آمدید!',
+              'خوش آمدید',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -296,9 +710,9 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'نقش سازمانی',
-                  style: TextStyle(
+                Text(
+                  widget.role ?? 'نقش سازمانی',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
                     fontFamily: 'Vazir',
@@ -339,31 +753,34 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder:
-          (dialogContext) => AlertDialog(
-            title: const Text(
-              'خروج از حساب',
-              style: TextStyle(fontFamily: 'Vazir'),
-            ),
-            content: const Text(
-              'آیا مطمئن هستید که می‌خواهید از حساب کاربری خود خارج شوید؟',
-              style: TextStyle(fontFamily: 'Vazir'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('انصراف'),
+          (dialogContext) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text(
+                'خروج از حساب',
+                style: TextStyle(fontFamily: 'Vazir'),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  context.read<AuthBloc>().add(const LogoutEvent());
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
+              content: const Text(
+                'آیا مطمئن هستید که می‌خواهید از حساب کاربری خود خارج شوید؟',
+                style: TextStyle(fontFamily: 'Vazir'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('انصراف'),
                 ),
-                child: const Text('خروج'),
-              ),
-            ],
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    context.read<AuthBloc>().add(const LogoutEvent());
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                  ),
+                  child: const Text('خروج'),
+                ),
+              ],
+            ),
           ),
     );
   }

@@ -7,35 +7,39 @@ class TransactionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryGreen,
-      appBar: AppBar(
-        title: const Text(
-          'عملیات',
-          style: TextStyle(fontFamily: 'Vazir', color: Colors.white),
-        ),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
         backgroundColor: AppColors.primaryGreen,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildMenuItem(
-              context,
-              title: 'مدیریت بها',
-              imagePath: 'assets/images/PriceManagement.png',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PriceManagementPage(),
-                  ),
-                );
-              },
-            ),
-          ],
+        appBar: AppBar(
+          title: const Text(
+            'عملیات',
+            style: TextStyle(fontFamily: 'Vazir', color: Colors.white),
+          ),
+          backgroundColor: AppColors.primaryGreen,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          centerTitle: true,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              _buildMenuItem(
+                context,
+                title: 'مدیریت بها',
+                imagePath: 'assets/images/PriceManagement.png',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PriceManagementPage(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -69,6 +73,16 @@ class TransactionPage extends StatelessWidget {
         ),
         child: Row(
           children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Vazir',
+              ),
+            ),
+            const SizedBox(width: 140),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -80,16 +94,6 @@ class TransactionPage extends StatelessWidget {
                 width: 40,
                 height: 40,
                 fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 140),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Vazir',
               ),
             ),
           ],

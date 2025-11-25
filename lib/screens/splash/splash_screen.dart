@@ -71,6 +71,7 @@ class _SplashScreenState extends State<SplashScreen>
           nextScreen = HomePage(
             username: savedUsername,
             name: localStorageService.savedName ?? savedUsername,
+            role: localStorageService.savedRole,
           );
         } else if (savedUsername != null && savedPassword != null) {
           // اگر رمز عبور ذخیره‌شده است، خودکار ورود

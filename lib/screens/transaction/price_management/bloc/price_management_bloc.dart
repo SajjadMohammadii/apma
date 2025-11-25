@@ -79,7 +79,16 @@ class PriceManagementBloc
         ),
       );
 
-      developer.log('✅ وضعیت ${event.requestId} به‌روز شد');
+      // ذخیره فوری در سرور
+      try {
+        await priceRequestService.setPriceChangeRequestConfirmationStatus(
+          event.requestId,
+          event.newStatus,
+        );
+        developer.log('✅ وضعیت ${event.requestId} به‌روز و ذخیره شد');
+      } catch (e) {
+        developer.log('❌ خطا در ذخیره فوری: $e');
+      }
     } catch (e) {
       developer.log('❌ خطا در به‌روزرسانی: $e');
       emit(PriceManagementError(message: 'خطا در به‌روزرسانی وضعیت'));

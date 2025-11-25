@@ -83,10 +83,11 @@ class _LoginViewState extends State<LoginView> {
     }
   }
 
-  void _navigateToHome(String username, String name) {
+  void _navigateToHome(String username, String name, String? role) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => HomePage(username: username, name: name),
+        builder:
+            (context) => HomePage(username: username, name: name, role: role),
       ),
     );
   }
@@ -126,6 +127,7 @@ class _LoginViewState extends State<LoginView> {
                       _navigateToHome(
                         state.user.username,
                         state.user.name ?? "",
+                        state.user.role,
                       );
                     } else if (state is AuthError) {
                       developer.log('❌ خطا: ${state.message}');

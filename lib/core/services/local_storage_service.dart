@@ -7,6 +7,7 @@ class LocalStorageService {
   static const String _isLoggedInKey = 'isLoggedIn';
   static const String _userUsernameKey = 'userUsername';
   static const String _userNameKey = 'userName';
+  static const String _userRoleKey = 'userRole';
   static const String _userPasswordKey = 'userPassword';
   static const String _userTokenKey = 'userToken';
   static const String _savePasswordKey = 'savePassword';
@@ -22,11 +23,15 @@ class LocalStorageService {
     required String username,
     required String name,
     required String token,
+    String? role,
   }) async {
     await _prefs.setBool(_isLoggedInKey, true);
     await _prefs.setString(_userUsernameKey, username);
     await _prefs.setString(_userNameKey, name);
     await _prefs.setString(_userTokenKey, token);
+    if (role != null) {
+      await _prefs.setString(_userRoleKey, role);
+    }
   }
 
   Future<void> savePassword(String password, String username) async {
@@ -46,11 +51,14 @@ class LocalStorageService {
 
   String? get savedName => _prefs.getString(_userNameKey);
 
+  String? get savedRole => _prefs.getString(_userRoleKey);
+
   String? get savedToken => _prefs.getString(_userTokenKey);
 
   Future<void> clearUserData() async {
     await _prefs.remove(_isLoggedInKey);
     await _prefs.remove(_userNameKey);
+    await _prefs.remove(_userRoleKey);
     await _prefs.remove(_userTokenKey);
     // username را نگه دار
   }
