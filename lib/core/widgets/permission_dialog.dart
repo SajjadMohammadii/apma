@@ -63,18 +63,31 @@ class _PermissionDialogState extends State<PermissionDialog>
       widget.onPermissionsGranted(); // فراخوانی callback
       if (mounted) Navigator.pop(context); // بستن دیالوگ
     } else {
-      // اگر برخی دسترسی‌ها رد شدند
-      developer.log('⚠️ برخی دسترسی‌ها رد شدند');
+      // اگر برخی دسترسی‌ها رد شدند - نره جلو!
+      developer.log('🚫 برخی دسترسی‌ها رد شدند - باید همه داده بشه');
+
+      // گرفتن لیست دسترسی‌های رد شده
+      final deniedList = await PermissionService.getDeniedPermissions();
+      final deniedText = deniedList.join('، ');
 
       if (mounted) {
-        // نمایش پیام هشدار
+        // نمایش پیام خطا با لیست دسترسی‌های رد شده
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('لطفاً تمام دسترسی‌های لازم را اعطا کنید'),
+            content: Text(
+              'لطفاً همه دسترسی‌ها را اعطا کنید.\nدسترسی‌های داده نشده: $deniedText',
+              style: const TextStyle(fontFamily: 'Vazir', fontSize: 12),
+            ),
             backgroundColor: AppColors.error, // رنگ قرمز
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'تنظیمات',
+              textColor: Colors.white,
+              onPressed: () => openAppSettings(),
             ),
           ),
         );
@@ -223,6 +236,27 @@ class _PermissionDialogState extends State<PermissionDialog>
                                 'فایل‌ها',
                                 'برای ذخیره و خواندن فایل‌ها',
                                 Colors.teal,
+                              ),
+                              _divider(),
+                              _permissionTile(
+                                Icons.phone_rounded,
+                                'تماس',
+                                'برای برقراری تماس تلفنی',
+                                Colors.indigo,
+                              ),
+                              _divider(),
+                              _permissionTile(
+                                Icons.sms_rounded,
+                                'پیامک',
+                                'برای ارسال و دریافت پیامک',
+                                Colors.cyan,
+                              ),
+                              _divider(),
+                              _permissionTile(
+                                Icons.calendar_month_rounded,
+                                'تقویم',
+                                'برای مدیریت رویدادها',
+                                Colors.pink,
                               ),
                               _divider(),
                               _permissionTile(

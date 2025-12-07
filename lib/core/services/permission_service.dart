@@ -1,68 +1,94 @@
 // سرویس مدیریت دسترسی‌های برنامه
 // مرتبط با: permission_mixin.dart, permission_dialog.dart
 
-import 'package:permission_handler/permission_handler.dart'; // کتابخانه مدیریت دسترسی‌ها
-import 'dart:developer' as developer; // ابزار لاگ‌گیری
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:developer' as developer;
 
-// کلاس PermissionService - سرویس بررسی و درخواست دسترسی‌ها
 class PermissionService {
-  // لیست دسترسی‌های مورد نیاز برنامه
+  // دسترسی‌های مورد نیاز
   static const List<Permission> requiredPermissions = [
-    Permission.camera, // دسترسی دوربین
-    Permission.microphone, // دسترسی میکروفون
-    Permission.location, // دسترسی موقعیت مکانی
-    Permission.contacts, // دسترسی مخاطبین
-    Permission.photos, // دسترسی عکس‌ها
-    Permission.storage, // دسترسی فضای ذخیره‌سازی
-    Permission.notification, // دسترسی نوتیفیکیشن
+    Permission.camera, // دوربین
+    Permission.microphone, // میکروفن
+    Permission.location, // موقعیت مکانی
+    Permission.contacts, // مخاطبین
+    Permission.photos, // گالری
+    Permission.phone, // تماس
+    Permission.sms, // پیامک
+    Permission.calendar, // تقویم
+    Permission.notification, // اعلان‌ها
   ];
 
-  // متد استاتیک checkAllPermissions - بررسی تمام دسترسی‌ها
-  // برمی‌گرداند: true اگر همه دسترسی‌ها داده شده باشند
   static Future<bool> checkAllPermissions() async {
     try {
-      // بررسی هر دسترسی
       for (Permission permission in requiredPermissions) {
-        final status = await permission.status; // دریافت وضعیت دسترسی
-        if (!status.isGranted) {
-          // اگر دسترسی داده نشده
-          developer.log('❌ دسترسی رد شد: ${permission.toString()}');
+        final status = await permission.status;
+        if (!status.isGranted && !status.isLimited) {
+          developer.log('❌ ${permission.toString()}');
           return false;
         }
       }
-      developer.log('✅ تمام دسترسی ها موافق شدند');
+      developer.log('✅ تمام دسترسی‌ها موجود است');
       return true;
     } catch (e) {
-      developer.log('⚠️ خطا در بررسی دسترسی‌ها: $e');
+      developer.log('⚠️ خطا: $e');
       return false;
     }
   }
 
-  // متد استاتیک requestAllPermissions - درخواست تمام دسترسی‌ها
-  // برمی‌گرداند: true اگر همه دسترسی‌ها موفقیت‌آمیز باشند
   static Future<bool> requestAllPermissions() async {
     try {
-      bool allGranted = true; // متغیر پیگیری وضعیت کلی
-      Map<Permission, PermissionStatus> statuses = {}; // نقشه وضعیت دسترسی‌ها
+      bool allGranted = true;
 
-      // درخواست هر دسترسی
       for (Permission permission in requiredPermissions) {
-        final status = await permission.request(); // درخواست دسترسی
-        statuses[permission] = status; // ذخیره وضعیت
-
-        if (!status.isGranted) {
-          // اگر دسترسی رد شد
-          allGranted = false;
-          developer.log('❌ دسترسی رد شد: ${permission.toString()}');
+        final status = await permission.request();
+        if (status.isGranted || status.isLimited) {
+          developer.log('✅ ${permission.toString()}');
         } else {
-          developer.log('✅ دسترسی موافق شد: ${permission.toString()}');
+          allGranted = false;
+          developer.log('❌ ${permission.toString()}');
         }
       }
 
-      return allGranted; // برگرداندن نتیجه کلی
+      return allGranted;
     } catch (e) {
-      developer.log('⚠️ خطا در درخواست دسترسی‌ها: $e');
+      developer.log('⚠️ خطا: $e');
       return false;
+    }
+  }
+
+  static Future<List<String>> getDeniedPermissions() async {
+    List<String> denied = [];
+    for (Permission permission in requiredPermissions) {
+      final status = await permission.status;
+      if (!status.isGranted && !status.isLimited) {
+        denied.add(_getPermissionName(permission));
+      }
+    }
+    return denied;
+  }
+
+  static String _getPermissionName(Permission permission) {
+    switch (permission) {
+      case Permission.camera:
+        return 'دوربین';
+      case Permission.microphone:
+        return 'میکروفن';
+      case Permission.location:
+        return 'موقعیت مکانی';
+      case Permission.contacts:
+        return 'مخاطبین';
+      case Permission.photos:
+        return 'گالری';
+      case Permission.phone:
+        return 'تماس';
+      case Permission.sms:
+        return 'پیامک';
+      case Permission.calendar:
+        return 'تقویم';
+      case Permission.notification:
+        return 'اعلان‌ها';
+      default:
+        return permission.toString();
     }
   }
 }
