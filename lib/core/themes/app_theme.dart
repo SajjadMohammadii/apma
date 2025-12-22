@@ -16,8 +16,7 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: AppColors.primaryGreen, // رنگ اصلی
         secondary: AppColors.primaryOrange, // رنگ ثانویه
-        surface: Colors.white, // رنگ سطوح
-        background: AppColors.backgroundColor, // رنگ پس‌زمینه
+        surface: Colors.white, // رنگ پس‌زمینه
         error: AppColors.error, // رنگ خطا
       ),
 

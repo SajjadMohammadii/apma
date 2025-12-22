@@ -1,5 +1,3 @@
-// ویجت دیالوگ درخواست دسترسی‌ها - نمایش لیست دسترسی‌های مورد نیاز و دکمه اعطا
-// مرتبط با: permission_service.dart, permission_mixin.dart, app_colors.dart
 
 import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
 import 'package:apma_app/core/services/permission_service.dart'; // سرویس دسترسی‌ها
@@ -59,12 +57,12 @@ class _PermissionDialogState extends State<PermissionDialog>
 
     if (allGranted) {
       // اگر همه دسترسی‌ها داده شد
-      developer.log('✅ تمام دسترسی‌ها موافقت کردند');
+      developer.log(' تمام دسترسی‌ها موافقت کردند');
       widget.onPermissionsGranted(); // فراخوانی callback
       if (mounted) Navigator.pop(context); // بستن دیالوگ
     } else {
       // اگر برخی دسترسی‌ها رد شدند - نره جلو!
-      developer.log('🚫 برخی دسترسی‌ها رد شدند - باید همه داده بشه');
+      developer.log(' برخی دسترسی‌ها رد شدند - باید همه داده بشه');
 
       // گرفتن لیست دسترسی‌های رد شده
       final deniedList = await PermissionService.getDeniedPermissions();

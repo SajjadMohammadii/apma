@@ -1,65 +1,95 @@
-// نقطه ورود اصلی برنامه APMA
-// مرتبط با: injection_container.dart, splash_screen.dart, auth_bloc.dart
-import 'dart:io'; // کتابخانه برای کار با سیستم‌عامل و فایل‌ها
+// import 'package:flutter/material.dart';
+//
+// void main() {
+//   runApp(const MyApp());
+// }
+//
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       debugShowCheckedModeBanner: false,
+//       home: Scaffold(
+//         appBar: AppBar(title: const Text("تست اپ")),
+//         body: const Center(child: Text("اپ اجرا شد ")),
+//       ),
+//     );
+//   }
+// }
 
-import 'package:apma_app/core/constants/app_string.dart'; // رشته‌های ثابت برنامه
-import 'package:apma_app/core/themes/app_theme.dart'; // تم و استایل برنامه
-import 'package:apma_app/screens/splash/splash_screen.dart'; // صفحه اسپلش (صفحه شروع)
-import 'package:apma_app/services/foreground_service.dart'; // سرویس پس‌زمینه
-import 'package:flutter/foundation.dart'; // ابزارهای پایه فلاتر
-import 'package:flutter/material.dart'; // ویجت‌های متریال دیزاین
-import 'package:flutter/services.dart'; // سرویس‌های سیستمی فلاتر
-import 'package:flutter_bloc/flutter_bloc.dart'; // مدیریت state با BLoC
-import 'package:flutter_foreground_task/flutter_foreground_task.dart'; // تسک‌های پیش‌زمینه
+// نقطه ورود اصلی برنامه APMA
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
+import 'core/constants/app_string.dart';
+import 'core/themes/app_theme.dart';
+import 'screens/splash/splash_screen.dart';
+import 'services/foreground_service.dart';
 
 // DI - تزریق وابستگی
-import 'core/di/injection_container.dart' as di; // کانتینر تزریق وابستگی
-import 'features/auth/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
+import 'core/di/injection_container.dart' as di;
 
-/// تابع main - نقطه شروع برنامه، تنظیمات اولیه و تزریق وابستگی‌ها را انجام می‌دهد
+// Bloc ها
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/commuting/presentation/bloc/commuting_bloc.dart';
+
+/// تابع main - نقطه شروع برنامه
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // اطمینان از آماده بودن binding ویجت‌ها
+  WidgetsFlutterBinding.ensureInitialized();
 
-  // تنظیم جهت‌های مجاز صفحه (فقط عمودی)
+  // فقط حالت عمودی
   await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp, // عمودی - بالا
-    DeviceOrientation.portraitDown, // عمودی - پایین
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
   ]);
 
-  // مقداردهی اولیه GetIt (سیستم تزریق وابستگی)
+  // مقداردهی اولیه GetIt
   await di.init();
 
-  // اگر وب نیست و اندروید است، سرویس پس‌زمینه را شروع کن
+  // سرویس پس‌زمینه برای اندروید
   if (!kIsWeb && Platform.isAndroid) {
-    await ForegroundService.init(); // مقداردهی سرویس پیش‌زمینه
-    await ForegroundService.start(); // شروع سرویس پیش‌زمینه
+    await ForegroundService.init();
+    await ForegroundService.start();
   }
 
-  runApp(const ApmacoApp()); // اجرای ویجت اصلی برنامه
+  runApp(const ApmacoApp());
 }
 
-// کلاس ApmacoApp - ویجت ریشه برنامه APMA با تنظیمات BLoC Provider
-// مرتبط با: app_theme.dart, auth_bloc.dart, splash_screen.dart
+// کلاس ApmacoApp - ویجت ریشه برنامه
 class ApmacoApp extends StatelessWidget {
-  const ApmacoApp({super.key}); // سازنده کلاس با کلید اختیاری
+  const ApmacoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // متد build - ساخت درخت ویجت
-    return BlocProvider<AuthBloc>(
-      // فراهم‌کننده بلاک احراز هویت برای کل برنامه
-      create:
-          (context) =>
-              di.sl<AuthBloc>(), // ساخت نمونه AuthBloc از service locator
+    return MultiBlocProvider(
+      providers: [
+        // بلاک احراز هویت
+        BlocProvider<AuthBloc>(
+          create: (context) => di.sl<AuthBloc>(),
+        ),
+        // بلاک ورود/خروج پرسنل
+        BlocProvider<CommutingBloc>(
+          create: (context) => di.sl<CommutingBloc>()
+            // ..add(LoadLastStatus("EMP123")), // بارگذاری اولیه وضعیت
+        ),
+      ],
       child: MaterialApp(
-        // ویجت اصلی متریال اپ
-        title: AppStrings.appName, // عنوان برنامه
-        debugShowCheckedModeBanner: false, // مخفی کردن بنر debug
-        theme: AppTheme.lightTheme, // تم روشن برنامه
+        title: AppStrings.appName,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
         home: WithForegroundTask(
           child: const SplashScreen(),
-        ), // صفحه خانه با پشتیبانی از تسک پیش‌زمینه
-      ),
+        ),
+       // home: BlocTestPage(),
+
+    ),
     );
   }
 }

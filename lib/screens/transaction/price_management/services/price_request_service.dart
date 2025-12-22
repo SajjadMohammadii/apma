@@ -63,14 +63,14 @@ class PriceRequestService {
       if (error != 0) {
         final String errorMessage =
             resultJson['Message'] ?? 'خطای نامشخص از سرور';
-        developer.log('❌ خطا: $errorMessage');
+        developer.log(' خطا: $errorMessage');
         throw Exception(errorMessage);
       }
 
       // استخراج جزئیات
       final detailsData = resultJson['Details'];
       if (detailsData == null) {
-        developer.log('⚠️ لیست خالی');
+        developer.log(' لیست خالی');
         return [];
       }
 
@@ -87,7 +87,7 @@ class PriceRequestService {
         return [];
       }
 
-      developer.log('✅ ${detailsList.length} مورد دریافت شد');
+      developer.log(' ${detailsList.length} مورد دریافت شد');
 
       // شمارش وضعیت‌ها برای دیباگ
       final statusCounts = <int, int>{};
@@ -117,7 +117,7 @@ class PriceRequestService {
           )
           .toList();
     } catch (e) {
-      developer.log('❌ خطا: $e');
+      developer.log(' خطا: $e');
       rethrow;
     }
   }
@@ -145,9 +145,9 @@ class PriceRequestService {
         soapAction: '${namespace}SetPriceChangeRequestConfirmationStatus',
       );
 
-      developer.log('✅ وضعیت ذخیره شد');
+      developer.log(' وضعیت ذخیره شد');
     } catch (e) {
-      developer.log('❌ خطا در ذخیره: $e');
+      developer.log(' خطا در ذخیره: $e');
       rethrow;
     }
   }

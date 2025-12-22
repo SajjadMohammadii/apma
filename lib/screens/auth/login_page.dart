@@ -131,7 +131,7 @@ class _LoginViewState extends State<LoginView> with PermissionMixin {
                     if (state is AuthAuthenticated) {
                       // ورود موفق
                       developer.log(
-                        '✅ احراز هویت موفق: ${state.user.username}',
+                        ' احراز هویت موفق: ${state.user.username}',
                       );
 
                       // ذخیره رمز عبور اگر نیاز باشد
@@ -152,7 +152,7 @@ class _LoginViewState extends State<LoginView> with PermissionMixin {
                       );
                     } else if (state is AuthError) {
                       // نمایش خطا
-                      developer.log('❌ خطا: ${state.message}');
+                      developer.log(' خطا: ${state.message}');
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

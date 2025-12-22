@@ -7,7 +7,7 @@ import 'dart:developer' as developer; // ابزار لاگ‌گیری
 class PriceRequestModel {
   final String orderID; // شناسه سفارش
   final String orderDate; // تاریخ سفارش
-  final String personID; // شناسه شخص
+  final String personId; // شناسه شخص
   final String personName; // نام شخص
   final String personSurname; // نام خانوادگی شخص
   final String number; // شماره درخواست
@@ -28,7 +28,7 @@ class PriceRequestModel {
   PriceRequestModel({
     required this.orderID,
     required this.orderDate,
-    required this.personID,
+    required this.personId,
     required this.personName,
     required this.personSurname,
     required this.number,
@@ -51,7 +51,7 @@ class PriceRequestModel {
     return PriceRequestModel(
       orderID: json['OrderID']?.toString() ?? '',
       orderDate: json['OrderDate']?.toString() ?? '',
-      personID: json['PersonID']?.toString() ?? '',
+      personId: json['PersonId']?.toString() ?? '',
       personName: json['PersonName']?.toString() ?? '',
       personSurname: json['PersonSurname']?.toString() ?? '',
       number: json['Number']?.toString() ?? '',

@@ -52,7 +52,7 @@ class PriceManagementBloc
         ),
       );
     } catch (e) {
-      developer.log('❌ Bloc خطا: $e');
+      developer.log(' Bloc خطا: $e');
       emit(PriceManagementError(message: e.toString())); // ارسال خطا
     }
   }
@@ -101,12 +101,12 @@ class PriceManagementBloc
           event.requestId,
           event.newStatus,
         );
-        developer.log('✅ وضعیت ${event.requestId} به‌روز و ذخیره شد');
+        developer.log(' وضعیت ${event.requestId} به‌روز و ذخیره شد');
       } catch (e) {
-        developer.log('❌ خطا در ذخیره فوری: $e');
+        developer.log(' خطا در ذخیره فوری: $e');
       }
     } catch (e) {
-      developer.log('❌ خطا در به‌روزرسانی: $e');
+      developer.log(' خطا در به‌روزرسانی: $e');
       emit(PriceManagementError(message: 'خطا در به‌روزرسانی وضعیت'));
     }
   }
@@ -136,12 +136,12 @@ class PriceManagementBloc
 
       emit(const PriceManagementSaved()); // نمایش پیام موفقیت
 
-      developer.log('✅ تغییرات ذخیره شد');
+      developer.log(' تغییرات ذخیره شد');
 
       // برگشت به حالت Loaded
       emit(currentState.copyWith(hasChanges: false, changedIds: []));
     } catch (e) {
-      developer.log('❌ خطا در ذخیره: $e');
+      developer.log(' خطا در ذخیره: $e');
       emit(PriceManagementError(message: 'خطا در ذخیره تغییرات: $e'));
     }
   }

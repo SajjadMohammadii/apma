@@ -17,7 +17,9 @@ import 'package:apma_app/screens/transaction/bankcheck/bankـcheck.dart'; // ص�
 import 'package:apma_app/screens/transaction/price_management/price_management_page.dart'; // صفحه مدیریت بها
 
 import 'package:flutter/material.dart'; // ویجت‌های متریال
-import 'package:flutter_bloc/flutter_bloc.dart'; // کتابخانه BLoC
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../production/production_control.dart';
 
 // کلاس HomePage - صفحه اصلی پس از ورود
 class HomePage extends StatefulWidget {
@@ -44,6 +46,12 @@ class _HomePageState extends State<HomePage> {
       'title': 'مدیریت بها', // عنوان
       'icon': Icons.analytics, // آیکون
       'route': '/price_management', // مسیر
+      'widget': null, // ویجت (تنظیم پویا)
+    },
+    {
+      'title': 'کنترل تولید', // عنوان
+      'icon': Icons.inventory, // آیکون
+      'route': '/production_control', // مسیر
       'widget': null, // ویجت (تنظیم پویا)
     },
     {
@@ -451,7 +459,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               )
             else
-              ...favoriteItems.map((item) => _buildFavoriteItem(item)).toList(),
+              ...favoriteItems.map((item) => _buildFavoriteItem(item)),
           ],
         ),
       ),
@@ -559,6 +567,12 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => const EntryExitPage()),
         );
         break;
+      case 'Production_Control':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ProductionControl()),
+        );
+
       case '/delivery_parcels':
         Navigator.push(
           context,
@@ -832,6 +846,7 @@ class _HomePageState extends State<HomePage> {
                   Navigator.pop(context);
                   if (_selectedCategory == 'مالی' ||
                       _selectedCategory == 'تسهیل دار' ||
+                      _selectedCategory == 'تولید' ||
                       _selectedCategory == 'پرسنلی') {
                     Navigator.push(
                       context,

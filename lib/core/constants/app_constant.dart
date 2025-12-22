@@ -3,6 +3,11 @@
 
 // کلاس AppConstants - ثابت‌های عددی و تنظیماتی برنامه
 class AppConstants {
+
+  static const String serverUrl = "http://80.210.60.13:12345/erp.asmx";
+
+  // static const String serverUrl = "http://80.210.60.13:16842/erp.asmx";
+
   // مدت زمان‌ها
   static const Duration splashDuration = Duration(
     seconds: 3,

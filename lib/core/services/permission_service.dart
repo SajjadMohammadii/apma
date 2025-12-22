@@ -1,36 +1,44 @@
-// سرویس مدیریت دسترسی‌های برنامه
-// مرتبط با: permission_mixin.dart, permission_dialog.dart
-
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:developer' as developer;
 
 class PermissionService {
   // دسترسی‌های مورد نیاز
-  static const List<Permission> requiredPermissions = [
-    Permission.camera, // دوربین
-    Permission.microphone, // میکروفن
-    Permission.location, // موقعیت مکانی
-    Permission.contacts, // مخاطبین
-    Permission.photos, // گالری
-    Permission.phone, // تماس
-    Permission.sms, // پیامک
-    Permission.calendar, // تقویم
-    Permission.notification, // اعلان‌ها
-  ];
+  static List<Permission> get requiredPermissions {
+    final List<Permission> base = [
+      Permission.camera,
+      Permission.microphone,
+      Permission.location,
+      Permission.contacts,
+      Permission.phone,
+      Permission.sms,
+      Permission.calendar,
+      Permission.notification,
+    ];
+
+    if (Platform.isIOS) {
+      base.add(Permission.photos); // گالری در iOS
+    } else if (Platform.isAndroid) {
+      // base.add(Permission.storage); // حافظه در Android
+      base.add(Permission.photos); // نگاشت به READ_MEDIA_IMAGES
+      base.add(Permission.videos); // // نگاشت به READ_MEDIA_VIDEO
+      base.add(Permission.audio); //  نگاشت به READ_MEDIA_AUDIO
+      // اگر بخوای دقیق‌تر باشی برای Android 13+
+      // base.add(Permission.photos); // در نسخه‌های جدید permission_handler این رو map کرده به READ_MEDIA_IMAGES
+    }
+
+    return base;
+  }
 
   static Future<bool> checkAllPermissions() async {
     try {
       for (Permission permission in requiredPermissions) {
         final status = await permission.status;
         if (!status.isGranted && !status.isLimited) {
-          developer.log('❌ ${permission.toString()}');
           return false;
         }
       }
-      developer.log('✅ تمام دسترسی‌ها موجود است');
       return true;
     } catch (e) {
-      developer.log('⚠️ خطا: $e');
       return false;
     }
   }
@@ -38,20 +46,14 @@ class PermissionService {
   static Future<bool> requestAllPermissions() async {
     try {
       bool allGranted = true;
-
       for (Permission permission in requiredPermissions) {
         final status = await permission.request();
-        if (status.isGranted || status.isLimited) {
-          developer.log('✅ ${permission.toString()}');
-        } else {
+        if (!(status.isGranted || status.isLimited)) {
           allGranted = false;
-          developer.log('❌ ${permission.toString()}');
         }
       }
-
       return allGranted;
     } catch (e) {
-      developer.log('⚠️ خطا: $e');
       return false;
     }
   }
@@ -91,4 +93,5 @@ class PermissionService {
         return permission.toString();
     }
   }
+
 }

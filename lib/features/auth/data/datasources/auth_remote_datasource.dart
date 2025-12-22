@@ -6,7 +6,9 @@ import 'dart:developer' as developer; // ابزار لاگ‌گیری
 
 import 'package:apma_app/core/errors/exceptions.dart'; // کلاس‌های استثنا
 import 'package:apma_app/core/network/soap_client.dart'; // کلاینت SOAP
-import 'package:apma_app/features/auth/data/models/user_model.dart'; // مدل کاربر
+import 'package:apma_app/features/auth/data/models/user_model.dart';
+
+import '../../../../core/constants/app_constant.dart'; // مدل کاربر
 
 // کلاس انتزاعی AuthRemoteDataSource - رابط منبع داده راه دور
 abstract class AuthRemoteDataSource {
@@ -23,8 +25,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final SoapClient soapClient; // کلاینت SOAP برای ارتباط با سرور
 
   // ثابت‌های URL و namespace وب‌سرویس
-  static const String webServiceUrl =
-      'http://80.210.60.13:12345/erp.asmx'; // آدرس وب‌سرویس
+  static const String webServiceUrl = AppConstants.serverUrl; // آدرس1 وب‌سرویس
+  //static const String webServiceUrl = AppConstants.serverUrl; // آدرس2 وب‌سرویس
+
   static const String namespace = 'http://apmaco.com/'; // فضای نام SOAP
 
   // نام متدهای وب‌سرویس
@@ -43,7 +46,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String username, // نام کاربری
     required String password, // رمز عبور
   }) async {
-    developer.log('🔐 شروع ورود کاربر: $username'); // لاگ شروع ورود
+    developer.log(' شروع ورود کاربر: $username'); // لاگ شروع ورود
     try {
       // ساخت داده‌های احراز هویت به صورت JSON
       final authData = json.encode({
@@ -88,7 +91,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'کاربر'; // نقش کاربر
 
       developer.log(
-        '✅ ورود موفق: $name (ID: $userId, Role: $role)',
+        ' ورود موفق: $name (ID: $userId, Role: $role)',
       ); // لاگ موفقیت
 
       // برگرداندن مدل کاربر
@@ -101,7 +104,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         token: userId,
       );
     } catch (e) {
-      developer.log('❌ Login Error: $e'); // لاگ خطا
+      developer.log(' Login Error: $e'); // لاگ خطا
       throw ServerException('خطا در فرآیند ورود: $e');
     }
   }
@@ -136,7 +139,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         token: userId,
       );
     } catch (e) {
-      developer.log('❌ GetCurrentUser Error: $e'); // لاگ خطا
+      developer.log(' GetCurrentUser Error: $e'); // لاگ خطا
       throw ServerException('خطا در دریافت اطلاعات کاربر: $e');
     }
   }
@@ -144,7 +147,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   // متد logout - خروج کاربر با شناسه
   Future<void> logout(String userId) async {
-    developer.log('🚪 در حال خروج کاربر $userId'); // لاگ شروع خروج
+    developer.log(' در حال خروج کاربر $userId'); // لاگ شروع خروج
     try {
       final data = json.encode({'id': userId}); // داده‌های خروج
       final soapActionUrl = '$namespace$logoutMethodName'; // آدرس SOAP Action
@@ -155,9 +158,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         namespace: namespace,
         soapAction: soapActionUrl,
       );
-      developer.log('✅ خروج موفق ثبت شد'); // لاگ موفقیت
+      developer.log(' خروج موفق ثبت شد'); // لاگ موفقیت
     } catch (e) {
-      developer.log('❌ Logout Error: $e'); // لاگ خطا
+      developer.log(' Logout Error: $e'); // لاگ خطا
       throw ServerException('خطا در خروج: $e');
     }
   }

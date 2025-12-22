@@ -2,6 +2,7 @@
 // مرتبط با: home_page.dart, price_management_page.dart, bank_check.dart
 
 import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
+import 'package:apma_app/screens/production/production_control.dart';
 import 'package:apma_app/screens/transaction/delivery_parcels/delivery_parcels.dart'; // صفحه تحویل مرسولات
 import 'package:apma_app/screens/transaction/Entry&Exit/Entry%D9%80Exit%D9%80page.dart'; // صفحه ورود و خروج
 import 'package:apma_app/screens/transaction/price_management/price_management_page.dart'; // صفحه مدیریت بها
@@ -72,7 +73,8 @@ class TransactionPage extends StatelessWidget {
           ),
         ],
       );
-    } else if (category == 'پرسنلی') {
+    }
+    else if (category == 'پرسنلی') {
       // دسته پرسنلی
       return Column(
         children: [
@@ -82,7 +84,18 @@ class TransactionPage extends StatelessWidget {
           ),
         ],
       );
-    } else {
+    }  else if (category == 'تولید') {
+      // دسته پرسنلی
+      return Column(
+        children: [
+          _buildMenuItem(
+            title: 'کنترل تولید',
+            imagePath: 'assets/images/production_control.png',
+          ),
+        ],
+      );
+    }
+    else {
       // دسته بدون محتوا
       return const Center(
         child: Text(
@@ -123,7 +136,13 @@ class TransactionPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (context) => const EntryExitPage()),
               );
-            } else if (title == 'تحویل مرسولات') {
+            }
+            else if (title == 'کنترل تولید') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) =>  ProductionControl()),
+              );
+            }  else if (title == 'تحویل مرسولات') {
               Navigator.push(
                 context,
                 MaterialPageRoute(

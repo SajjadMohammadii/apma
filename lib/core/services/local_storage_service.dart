@@ -28,6 +28,7 @@ class LocalStorageService {
     required String name, // نام کاربر
     required String token, // توکن
     String? role, // نقش (اختیاری)
+    required String personId,
   }) async {
     await _prefs.setBool(_isLoggedInKey, true); // تنظیم وضعیت ورود به true
     await _prefs.setString(_userUsernameKey, username); // ذخیره نام کاربری
@@ -36,7 +37,10 @@ class LocalStorageService {
     if (role != null) {
       await _prefs.setString(_userRoleKey, role); // ذخیره نقش اگر موجود باشد
     }
+    await _prefs.setString('personId', personId);
+    print('localStorage_personId ذخیره شد: $personId');
   }
+  String? get personId => _prefs.getString('personId');
 
   // متد savePassword - ذخیره رمز عبور
   Future<void> savePassword(String password, String username) async {

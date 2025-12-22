@@ -10,7 +10,13 @@ import 'package:apma_app/features/auth/domain/usecases/login_usecase.dart'; // �
 import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
 import 'package:get_it/get_it.dart'; // کتابخانه GetIt برای تزریق وابستگی
 import 'package:shared_preferences/shared_preferences.dart'; // ذخیره‌سازی تنظیمات
-import 'package:http/http.dart' as http; // کلاینت HTTP
+import 'package:http/http.dart' as http;
+import 'package:apma_app/core/services/location_service.dart';
+import '../../features/commuting/data/datasources/commuting_remote_datasource.dart';
+import '../../features/commuting/data/repositories/commuting_repository_impl.dart';
+import '../../features/commuting/domain/repositories/commuting_repository.dart';
+import '../../features/commuting/presentation/bloc/commuting_bloc.dart';
+
 
 // متغیر sl - نمونه GetIt برای استفاده در سایر فایل‌ها (Service Locator)
 final sl = GetIt.instance;
@@ -21,7 +27,7 @@ Future<void> init() async {
 
   // بلاک - ثبت به صورت Factory (هر بار نمونه جدید)
   sl.registerFactory(
-    () => AuthBloc(
+        () => AuthBloc(
       loginUseCase: sl(), // یوزکیس ورود
       repository: sl(), // ریپازیتوری
       localStorageService: sl(), // سرویس ذخیره‌سازی محلی
@@ -33,12 +39,12 @@ Future<void> init() async {
 
   // ریپازیتوری - ثبت به صورت LazySingleton
   sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(remoteDataSource: sl()),
+        () => AuthRepositoryImpl(remoteDataSource: sl()),
   );
 
   // منابع داده - استفاده از SOAP
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(soapClient: sl()),
+        () => AuthRemoteDataSourceImpl(soapClient: sl()),
   );
 
   //! هسته
@@ -50,7 +56,7 @@ Future<void> init() async {
 
   // کلاینت SOAP - ثبت با آدرس وب‌سرویس
   sl.registerLazySingleton<SoapClient>(
-    () => SoapClient(
+        () => SoapClient(
       baseUrl: AuthRemoteDataSourceImpl.webServiceUrl, // آدرس وب‌سرویس
       httpClient: sl(), // کلاینت HTTP
     ),
@@ -64,4 +70,26 @@ Future<void> init() async {
   // SharedPreferences - دریافت نمونه و ثبت
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
+
+// دیتا‌سورس SOAP commuting
+  sl.registerLazySingleton<CommutingRemoteDataSource>(
+        () => CommutingRemoteDataSourceImpl(soapClient: sl()),
+  );
+
+// ریپازیتوری commuting
+  sl.registerLazySingleton<CommutingRepository>(
+        () => CommutingRepositoryImpl(remote: sl()),
+  );
+
+// بلاک commuting
+  sl.registerFactory(
+        () => CommutingBloc(
+      repository: sl(),
+      locationService: sl(),
+    ),
+  );
+
+  // ثبت LocationService
+  sl.registerLazySingleton<LocationService>(() => LocationService());
+
 }

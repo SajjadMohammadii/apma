@@ -14,59 +14,42 @@ class MyTaskHandler extends TaskHandler {
   int _count = 0; // متغیر شمارنده برای تعداد دفعات اجرا
 
   @override
-  // متد onStart - هنگام شروع سرویس پس‌زمینه اجرا می‌شود
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    AppLogger.log('✅ Background Service STARTED'); // لاگ شروع سرویس
-    print(
-      '✅ [APMA Background] Service Started at: $timestamp',
-    ); // چاپ زمان شروع
-    // سرویس شروع شد
+    AppLogger.log(' Background Service STARTED');
+    print(' [APMA Background] Service Started at: $timestamp');
   }
 
   @override
-  // متد onRepeatEvent - در هر بازه زمانی تکرار می‌شود (هر ۵ ثانیه)
   Future<void> onRepeatEvent(DateTime timestamp) async {
-    AppLogger.log(
-      '🔄 Background running - Count: $_count',
-    ); // لاگ اجرای پس‌زمینه
-    print(
-      '🔄 [APMA Background] Running... Count: $_count at $timestamp',
-    ); // چاپ وضعیت
-    _count++; // افزایش شمارنده
+    AppLogger.log(' Background running - Count: $_count');
+    print(' [APMA Background] Running... Count: $_count at $timestamp');
+    _count++;
 
-    // اینجا کارهایی که می‌خوای در بکگراند انجام بشه
-
-    // آپدیت نوتیفیکیشن - به‌روزرسانی متن نوتیفیکیشن
+    // آپدیت نوتیفیکیشن
     FlutterForegroundTask.updateService(
-      notificationTitle: 'APMA App', // عنوان نوتیفیکیشن
-      notificationText: 'فعال - $_count بار', // متن نوتیفیکیشن با شمارنده
+      notificationTitle: 'APMA App',
+      notificationText: 'فعال - $_count بار',
     );
   }
 
   @override
-  // متد onDestroy - هنگام توقف سرویس اجرا می‌شود
   Future<void> onDestroy(DateTime timestamp, bool isForced) async {
-    AppLogger.log('🔄 Background running - Count: $_count'); // لاگ توقف
-    print(
-      '🔄 [APMA Background] Running... Count: $_count at $timestamp',
-    ); // چاپ وضعیت
-    // سرویس متوقف شد
+    AppLogger.log(' Background Service STOPPED - Count: $_count');
+    print(' [APMA Background] Stopped at $timestamp');
   }
 
   @override
-  // متد onNotificationButtonPressed - هنگام کلیک روی دکمه نوتیفیکیشن
   void onNotificationButtonPressed(String id) {
     // دکمه نوتیف کلیک شد
   }
 
   @override
-  // متد onNotificationPressed - هنگام کلیک روی خود نوتیفیکیشن
   void onNotificationPressed() {
-    FlutterForegroundTask.launchApp('/'); // باز کردن برنامه در صفحه اصلی
+    // وقتی روی نوتیف کلیک می‌شود → برو به صفحه اصلی
+    FlutterForegroundTask.launchApp('/home');
   }
 
   @override
-  // متد onNotificationDismissed - هنگام رد کردن نوتیفیکیشن
   void onNotificationDismissed() {
     // نوتیف dismiss شد
   }
@@ -74,90 +57,80 @@ class MyTaskHandler extends TaskHandler {
 
 // کلاس ForegroundService - مدیریت سرویس پیش‌زمینه
 class ForegroundService {
-  static bool _isRunning = false; // متغیر وضعیت اجرای سرویس
+  static bool _isRunning = false;
 
-  // متد init - راه‌اندازی اولیه سرویس
   static Future<void> init() async {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        id: 500, // شناسه نوتیفیکیشن
-        channelId: 'apma_service', // شناسه کانال نوتیفیکیشن
-        channelName: 'APMA Background Service', // نام کانال
-        channelDescription: 'اپلیکیشن APMA در حال اجراست', // توضیحات کانال
-        channelImportance: NotificationChannelImportance.HIGH, // اهمیت بالا
-        priority: NotificationPriority.HIGH, // اولویت بالا
-        onlyAlertOnce: true, // فقط یک بار هشدار بده
+        id: 500,
+        channelId: 'apma_service',
+        channelName: 'APMA Background Service',
+        channelDescription: 'اپلیکیشن APMA در حال اجراست',
+        channelImportance: NotificationChannelImportance.HIGH,
+        priority: NotificationPriority.HIGH,
+        onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true, // نمایش نوتیفیکیشن در iOS
-        playSound: false, // بدون صدا
+        showNotification: true,
+        playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(
-          5000,
-        ), // تکرار هر ۵۰۰۰ میلی‌ثانیه
-        autoRunOnBoot: true, // اجرای خودکار هنگام روشن شدن دستگاه
-        autoRunOnMyPackageReplaced: true, // اجرای خودکار بعد از آپدیت اپ
-        allowWakeLock: true, // اجازه بیدار نگه داشتن دستگاه
-        allowWifiLock: true, // اجازه فعال نگه داشتن WiFi
+        eventAction: ForegroundTaskEventAction.repeat(5000),
+        autoRunOnBoot: true,
+        autoRunOnMyPackageReplaced: true,
+        allowWakeLock: true,
+        allowWifiLock: true,
       ),
     );
   }
 
-  // متد start - شروع سرویس پیش‌زمینه
   static Future<bool> start() async {
-    if (_isRunning) {
-      // اگر سرویس در حال اجراست
-      return true; // برگردان true
-    }
+    if (_isRunning) return true;
 
-    // درخواست دسترسی‌ها
     await _requestPermissions();
 
-    // شروع سرویس
     await FlutterForegroundTask.startService(
-      serviceId: 500, // شناسه سرویس
-      notificationTitle: 'APMA App', // عنوان نوتیفیکیشن
-      notificationText: 'در حال اجرا', // متن نوتیفیکیشن
-      callback: startCallback, // تابع callback برای شروع
+      serviceId: 500,
+      notificationTitle: 'APMA App',
+      notificationText: 'در حال اجرا',
+      callback: startCallback,
     );
 
-    _isRunning = true; // تنظیم وضعیت به در حال اجرا
+    _isRunning = true;
     return true;
   }
 
-  // متد _requestPermissions - درخواست دسترسی‌های لازم
   static Future<void> _requestPermissions() async {
-    // دسترسی نوتیفیکیشن
     if (Platform.isAndroid) {
-      // اگر پلتفرم اندروید است
       final notificationPermission =
-          await FlutterForegroundTask.checkNotificationPermission(); // بررسی دسترسی نوتیفیکیشن
+      await FlutterForegroundTask.checkNotificationPermission();
       if (notificationPermission != NotificationPermission.granted) {
-        // اگر دسترسی داده نشده
-        await FlutterForegroundTask.requestNotificationPermission(); // درخواست دسترسی
+        await FlutterForegroundTask.requestNotificationPermission();
       }
 
-      // دسترسی Battery Optimization - بهینه‌سازی باتری
       if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
-        // اگر بهینه‌سازی باتری فعال است
-        await FlutterForegroundTask.requestIgnoreBatteryOptimization(); // درخواست نادیده گرفتن بهینه‌سازی
+        await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      }
+
+      //  بررسی نهایی: اگر همه دسترسی‌ها داده شدند → برو به صفحه اصلی
+      final notifFinal =
+      await FlutterForegroundTask.checkNotificationPermission();
+      final batteryFinal =
+      await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+
+      if (notifFinal == NotificationPermission.granted && batteryFinal) {
+        FlutterForegroundTask.launchApp('/home');
       }
     }
   }
 
-  // متد stop - توقف سرویس پیش‌زمینه
   static Future<bool> stop() async {
-    if (!_isRunning) {
-      // اگر سرویس در حال اجرا نیست
-      return true;
-    }
+    if (!_isRunning) return true;
 
-    await FlutterForegroundTask.stopService(); // توقف سرویس
-    _isRunning = false; // تنظیم وضعیت به متوقف
+    await FlutterForegroundTask.stopService();
+    _isRunning = false;
     return true;
   }
 
-  // getter isRunning - دریافت وضعیت اجرای سرویس
   static bool get isRunning => _isRunning;
 }

@@ -43,29 +43,33 @@ mixin PermissionMixin<T extends StatefulWidget> on State<T> {
 
     if (!hasPermissions) {
       // اگر دسترسی‌ها کامل نیست
-      developer.log('⚠️ دسترسی‌های ناقص - نمایش dialog');
+      developer.log(' دسترسی‌های ناقص - نمایش dialog');
       _showPermissionDialog(); // نمایش دیالوگ درخواست دسترسی
     } else {
       setState(() => _permissionsGranted = true); // تنظیم وضعیت به true
-      developer.log('✅ تمام دسترسی‌ها موجود است');
+      developer.log(' تمام دسترسی‌ها موجود است');
+     // Navigator.pop(context);
     }
   }
 
   // متد _showPermissionDialog - نمایش دیالوگ درخواست دسترسی
   void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // کاربر نتواند دیالوگ را با کلیک بیرون ببندد
-      builder:
-          (context) => PermissionDialog(
-            onPermissionsGranted: () {
-              // callback هنگام اعطای دسترسی‌ها
-              setState(() => _permissionsGranted = true);
-              developer.log('✅ دسترسی‌ها اعطا شدند');
-            },
-          ),
-    );
+    // showDialog(
+    //   context: context,
+    //   barrierDismissible: false, // کاربر نتواند دیالوگ را با کلیک بیرون ببندد
+    //   builder:
+    //       (context) => PermissionDialog(
+    //         onPermissionsGranted: () {
+    //           // callback هنگام اعطای دسترسی‌ها
+    //           setState(() => _permissionsGranted = true);
+    //           developer.log(' دسترسی‌ها اعطا شدند');
+    //           // Navigator.pop(context);
+    //         },
+    //       ),
+    // );
   }
+
+
 
   // getter hasPermissions - آیا دسترسی‌ها داده شده است
   bool get hasPermissions => _permissionsGranted;

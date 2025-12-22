@@ -45,7 +45,7 @@ class _SubTableWidgetState extends State<SubTableWidget> {
           _buildHeader(), // هدر جدول فرعی
           ...widget.subItems
               .map((subItem) => _buildRow(subItem))
-              .toList(), // ردیف‌ها
+              , // ردیف‌ها
         ],
       ),
     );

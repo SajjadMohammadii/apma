@@ -71,7 +71,7 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
 
   late PriceManagementBloc _bloc; // بلاک مدیریت بها
   Timer? _autoRefreshTimer; // تایمر بازخوانی خودکار
-  bool _isAutoRefreshEnabled = true; // فعال بودن بازخوانی خودکار
+  final bool _isAutoRefreshEnabled = true; // فعال بودن بازخوانی خودکار
 
   List<Map<String, dynamic>> mainData = []; // داده‌های اصلی جدول
   List<Map<String, dynamic>> filteredData = []; // داده‌های فیلتر شده
@@ -274,12 +274,12 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
       originalSubData.forEach((key, value) {
         subData[key] = List.from(value);
         // آپدیت کردن وضعیت‌ها بر اساس subFieldStatuses
-        subData[key]!.forEach((item) {
+        for (var item in subData[key]!) {
           final origId = item['original_id']?.toString() ?? '';
           if (subFieldStatuses.containsKey(origId)) {
             item['approval_status'] = subFieldStatuses[origId];
           }
-        });
+        }
       });
     } else {
       // فیلتر کردن بر اساس وضعیت انتخابی
@@ -414,9 +414,9 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
 
   void _sortMainTable(int col) {
     setState(() {
-      if (sortColumnIndex == col)
+      if (sortColumnIndex == col) {
         isAscending = !isAscending;
-      else {
+      } else {
         sortColumnIndex = col;
         isAscending = true;
       }
@@ -926,8 +926,9 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
                                         });
 
                                         int statusCode = 1;
-                                        if (status == 'تایید شده')
+                                        if (status == 'تایید شده') {
                                           statusCode = 2;
+                                        }
                                         if (status == 'رد شده') statusCode = 3;
 
                                         _bloc.add(
@@ -963,10 +964,11 @@ class _PriceManagementPageState extends State<PriceManagementPage> {
     );
     if (selected != null) {
       setState(() {
-        if (isFrom)
+        if (isFrom) {
           fromDate = selected;
-        else
+        } else {
           toDate = selected;
+        }
         _loadData();
       });
     }

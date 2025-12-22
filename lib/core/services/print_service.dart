@@ -2,7 +2,7 @@
 // مرتبط با: price_management_page.dart, delivery_parcels.dart
 
 import 'dart:io'; // کتابخانه کار با فایل‌ها
-import 'dart:typed_data'; // کتابخانه داده‌های باینری
+// کتابخانه داده‌های باینری
 import 'dart:ui'; // کتابخانه UI
 import 'package:excel/excel.dart'; // کتابخانه ساخت فایل Excel
 import 'package:flutter/foundation.dart'; // ابزارهای پایه فلاتر
@@ -31,16 +31,16 @@ class PrintService {
   }
 
   // -----------------------------
-  // 🖨️ متد printWidget - پرینت از ویجت (فقط موبایل)
+  //  متد printWidget - پرینت از ویجت (فقط موبایل)
   // -----------------------------
   static Future<void> printWidget({required String fileName}) async {
     try {
-      developer.log('🖨️ شروع پرینت ویجت');
+      developer.log(' شروع پرینت ویجت');
 
       // در دسکتاپ از capture استفاده نکن
       if (_isDesktop) {
         developer.log(
-          '⚠️ printWidget در دسکتاپ پشتیبانی نمی‌شود. از printPdf استفاده کنید.',
+          ' printWidget در دسکتاپ پشتیبانی نمی‌شود. از printPdf استفاده کنید.',
         );
         return;
       }
@@ -64,9 +64,9 @@ class PrintService {
         onLayout: (_) => pdf.save(),
       ); // اجرای پرینت
 
-      developer.log('✅ پرینت ویجت موفق');
+      developer.log(' پرینت ویجت موفق');
     } catch (e) {
-      developer.log('❌ خطا در پرینت ویجت: $e');
+      developer.log(' خطا در پرینت ویجت: $e');
     }
   }
 
@@ -89,9 +89,9 @@ class PrintService {
         onLayout: pdfBuilder, // تابع ساخت محتوای PDF
       );
 
-      developer.log("✅ PDF موفق");
+      developer.log(" PDF موفق");
     } catch (e) {
-      developer.log("❌ خطا در ساخت PDF: $e");
+      developer.log(" خطا در ساخت PDF: $e");
     }
   }
 
@@ -136,9 +136,9 @@ class PrintService {
         filename: '$fileName.pdf',
       ); // اشتراک‌گذاری PDF
 
-      developer.log("✅ خروجی PDF موفق");
+      developer.log(" خروجی PDF موفق");
     } catch (e) {
-      developer.log("❌ خطا در خروجی PDF: $e");
+      developer.log(" خطا در خروجی PDF: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('خطا در ایجاد PDF: $e')),
@@ -186,11 +186,11 @@ class PrintService {
         throw Exception('خطا در encode کردن Excel');
       }
 
-      developer.log("✅ خروجی Excel موفق - سایز: ${bytes.length} bytes");
+      developer.log(" خروجی Excel موفق - سایز: ${bytes.length} bytes");
 
       return Uint8List.fromList(bytes);
     } catch (e) {
-      developer.log("❌ خطا در ساخت Excel: $e");
+      developer.log(" خطا در ساخت Excel: $e");
       rethrow;
     }
   }
@@ -253,9 +253,9 @@ class PrintService {
         ),
       ], subject: fileName);
 
-      developer.log("✅ دانلود Excel موفق");
+      developer.log(" دانلود Excel موفق");
     } catch (e) {
-      developer.log("❌ خطا در دانلود Excel: $e");
+      developer.log(" خطا در دانلود Excel: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -285,7 +285,7 @@ class PrintService {
 
       return byteData!.buffer.asUint8List();
     } catch (e) {
-      developer.log("❌ خطا در کپچر ویجت: $e");
+      developer.log(" خطا در کپچر ویجت: $e");
       rethrow;
     }
   }

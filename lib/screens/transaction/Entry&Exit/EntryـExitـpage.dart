@@ -1,11 +1,14 @@
-// صفحه ورود و خروج - ثبت ساعت ورود و خروج کارمندان
-// مرتبط با: transaction.dart
+import 'dart:async';
+import 'dart:ffi';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:apma_app/core/constants/app_colors.dart';
+import '../../../features/commuting/domain/repositories/commuting_repository.dart';
+import '../../../features/commuting/presentation/bloc/commuting_bloc.dart';
+import '../../../features/commuting/presentation/bloc/commuting_event.dart';
+import '../../../features/commuting/presentation/bloc/commuting_state.dart';
 
-import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
-import 'package:flutter/material.dart'; // ویجت‌های متریال
-import 'dart:async'; // کتابخانه async برای Timer
-
-// کلاس EntryExitPage - صفحه ورود و خروج
 class EntryExitPage extends StatefulWidget {
   const EntryExitPage({super.key});
 
@@ -22,6 +25,11 @@ class _EntryExitPageState extends State<EntryExitPage>
   bool _isCheckedIn = false; // وضعیت حضور (ورود شده یا خیر)
   String _currentTime = ''; // زمان فعلی
   String _currentDate = ''; // تاریخ فعلی
+
+  // اضافه: شناسه کارمند برای ارسال به سرور
+  String? _personId;
+  Double? Lat;
+  Double? Lng;
 
   // داده‌های نمونه - سوابق امروز
   final List<Map<String, dynamic>> _todayRecords = [
@@ -56,6 +64,22 @@ class _EntryExitPageState extends State<EntryExitPage>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+
+    // اضافه: گرفتن personId از SharedPreferences و ارسال درخواست ابتدای صفحه
+    _loadPersonIdAndRequest();
+  }
+
+  // اضافه: خواندن personId و ارسال رویداد Bloc برای گرفتن آخرین وضعیت
+  Future<void> _loadPersonIdAndRequest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString("personId");
+    if (!mounted) return;
+    setState(() {
+      _personId = id;
+    });
+    if (id != null) {
+      context.read<CommutingBloc>().add(LoadLastStatusEvent(id));
+    }
   }
 
   // متد _updateTime - به‌روزرسانی زمان و تاریخ هر ثانیه
@@ -65,12 +89,13 @@ class _EntryExitPageState extends State<EntryExitPage>
     final now = DateTime.now();
     setState(() {
       _currentTime =
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
       _currentDate =
-          '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+      '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
     });
 
     _timer = Timer(const Duration(seconds: 1), _updateTime); // تایمر بازگشتی
+
   }
 
   @override
@@ -93,6 +118,20 @@ class _EntryExitPageState extends State<EntryExitPage>
       });
     });
 
+    // اضافه: در صورت وجود personId، ارسال رویداد ثبت ورود/خروج به بلاک
+    if (_personId != null) {
+      context.read<CommutingBloc>().add(
+        SubmitCommutingEvent(
+          personId: _personId!,
+          selectedStatus: _isCheckedIn ? 1 : 0, // 1: ورود، 0: خروج
+        ),
+      );
+    }
+
+    _getServerDateTimeRequest();
+
+    _getGeneralSettingsRequest();
+
     // نمایش پیام موفقیت
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -105,6 +144,14 @@ class _EntryExitPageState extends State<EntryExitPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  Future<void> _getServerDateTimeRequest() async {
+      context.read<CommutingBloc>().add(GetServerDateTimeEvent());
+  }
+
+  Future<void> _getGeneralSettingsRequest() async {
+    context.read<CommutingBloc>().add(GetGeneralSettingsEvent());
   }
 
   @override
@@ -124,98 +171,158 @@ class _EntryExitPageState extends State<EntryExitPage>
           iconTheme: const IconThemeData(color: Colors.white),
           centerTitle: true,
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildTimeCard(),
-              const SizedBox(height: 20),
-              _buildCheckInButton(),
-              const SizedBox(height: 20),
-              _buildTodayRecords(),
-              const SizedBox(height: 20),
-              _buildWeeklyStats(),
-            ],
-          ),
+        body: BlocConsumer<CommutingBloc, CommutingState>(
+          listener: (context, state) {
+            if (state is CommutingLoading) {
+              print(" CommutingLoading...");
+            } else if (state is CommutingReady) {
+              print(" CommutingReady:");
+              // print("آخرین زمان: ${state.lastDateTime}");
+              print("آخرین وضعیت: ${state.lastStatus}");
+              // print("وضعیت پیشنهادی: ${state.suggestedStatus}");
+            } else if (state is CommutingSubmitted) {
+              print(" CommutingSubmitted: ثبت موفق انجام شد");
+            } else if (state is CommutingError) {
+              print(" CommutingError: ${state.message}");
+            }
+          },
+          builder: (context, state) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  _buildTimeCard(),
+                  const SizedBox(height: 20),
+                  _buildCheckInButton(),
+                  const SizedBox(height: 20),
+                  _buildTodayRecords(),
+                  const SizedBox(height: 20),
+                  _buildWeeklyStats(),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
+
+//...............................................................................
   Widget _buildTimeCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryPurple,
-            AppColors.primaryPurple.withOpacity(0.7),
-          ],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryPurple.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            _currentTime,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 56,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Vazir',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _currentDate,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 18,
-              fontFamily: 'Vazir',
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isCheckedIn ? Icons.login : Icons.logout,
-                  color: Colors.white,
-                  size: 20,
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const CircularProgressIndicator();
+        }
+        final prefs = snapshot.data!;
+        // final lastDate = prefs.getString("lastDate");
+        // final lastTime = prefs.getString("lastTime");
+        int? status = prefs.getInt("lastStatus");
+        // _isCheckedIn = status == 1 ? true : false ;
+        print("Exit_Entry_page_status = $status");
+
+
+        return BlocBuilder<CommutingBloc, CommutingState>(
+          builder: (context, state) {
+            String? lastDate;
+            String? lastTime;
+            int? lastStatus;
+
+            if (state is CommutingReady) {
+              lastDate = state.lastDate;
+              lastTime = state.lastTime;
+              lastStatus = state.lastStatus;
+            }
+            //todo
+            if(lastTime == null || lastDate == null){
+              final now = DateTime.now();
+              _currentTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+              _currentDate = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+                lastDate = _currentDate;
+                lastTime = _currentTime;
+            }
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryPurple,
+                    AppColors.primaryPurple.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _isCheckedIn ? 'وضعیت: حاضر' : 'وضعیت: خارج',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontFamily: 'Vazir',
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryPurple.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    lastTime ?? '',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 56,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Vazir',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // اگر بخوای تاریخ جداگانه نشون بدی می‌تونی همین lastDateTime رو فرمت کنی
+                  Text(
+                    lastDate ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 20,
+                      fontFamily: 'Vazir',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isCheckedIn ? Icons.login : Icons.logout,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isCheckedIn ? 'وضعیت: حاضر' : 'وضعیت: خارج',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontFamily: 'Vazir',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
+//...............................................................................
   Widget _buildCheckInButton() {
     return ScaleTransition(
       scale: _pulseAnimation,
@@ -228,9 +335,9 @@ class _EntryExitPageState extends State<EntryExitPage>
             shape: BoxShape.circle,
             gradient: LinearGradient(
               colors:
-                  _isCheckedIn
-                      ? [Colors.orange, Colors.deepOrange]
-                      : [AppColors.primaryGreen, Colors.teal],
+              _isCheckedIn
+                  ? [Colors.orange, Colors.deepOrange]
+                  : [AppColors.primaryGreen, Colors.teal],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -312,7 +419,7 @@ class _EntryExitPageState extends State<EntryExitPage>
             ],
           ),
           const SizedBox(height: 16),
-          ..._todayRecords.map((record) => _buildRecordItem(record)).toList(),
+          ..._todayRecords.map((record) => _buildRecordItem(record)),
         ],
       ),
     );
@@ -371,18 +478,18 @@ class _EntryExitPageState extends State<EntryExitPage>
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color:
-                  record['status'] == 'تایید شده'
-                      ? Colors.green.withOpacity(0.2)
-                      : Colors.amber.withOpacity(0.2),
+              record['status'] == 'تایید شده'
+                  ? Colors.green.withOpacity(0.2)
+                  : Colors.amber.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               record['status'],
               style: TextStyle(
                 color:
-                    record['status'] == 'تایید شده'
-                        ? Colors.green[700]
-                        : Colors.amber[700],
+                record['status'] == 'تایید شده'
+                    ? Colors.green[700]
+                    : Colors.amber[700],
                 fontSize: 11,
                 fontFamily: 'Vazir',
               ),
@@ -437,7 +544,7 @@ class _EntryExitPageState extends State<EntryExitPage>
             ],
           ),
           const SizedBox(height: 16),
-          ..._weeklyStats.map((stat) => _buildStatItem(stat)).toList(),
+          ..._weeklyStats.map((stat) => _buildStatItem(stat)),
         ],
       ),
     );
@@ -481,9 +588,9 @@ class _EntryExitPageState extends State<EntryExitPage>
           Expanded(
             child: LinearProgressIndicator(
               value:
-                  stat['hours'] == '-'
-                      ? 0
-                      : double.tryParse(stat['hours'].split(':')[0]) ?? 0 / 10,
+              stat['hours'] == '-'
+                  ? 0
+                  : double.tryParse(stat['hours'].split(':')[0]) ?? 0 / 10,
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               minHeight: 6,

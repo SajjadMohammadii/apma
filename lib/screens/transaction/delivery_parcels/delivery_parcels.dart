@@ -86,7 +86,7 @@ class _DeliveryParcelsPageState extends State<DeliveryParcelsPage> {
                 Center(child: _buildSearchBox()),
                 const SizedBox(height: 12),
                 // جدول مرسولات
-                Container(height: screenHeight * 0.5, child: _buildTable()),
+                SizedBox(height: screenHeight * 0.5, child: _buildTable()),
                 const SizedBox(height: 12),
                 // مکان تسهیل دار
                 _buildLocationSelector(),
