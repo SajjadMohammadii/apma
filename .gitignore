@@ -3,6 +3,8 @@
 *.log
 *.pyc
 *.swp
+
+# MacOS Finder files
 .DS_Store
 .atom/
 .build/
@@ -43,3 +45,29 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+#..........................................
+
+# iOS specific
+Pods/
+DerivedData/
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata
+
+# Gradle
+.gradle/
+build/
+
+# Keystore and signing files
+*.jks
+*.keystore
+*.pem
+*.p12
+*.key
+
+# APK/AAB outputs
+*.apk
+*.aab
+
+

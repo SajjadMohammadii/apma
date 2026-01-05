@@ -35,10 +35,12 @@ class CommutingReady extends CommutingState {
 class GetServerTimeReady extends CommutingState {
   final String serverRaw;     // 20251214174319
   final String serverTime;
+  final String serverDate;
 
   GetServerTimeReady({
     required this.serverRaw,
     required this.serverTime,
+    required this.serverDate,
   });
 }
 

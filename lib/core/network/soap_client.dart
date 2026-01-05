@@ -76,14 +76,13 @@ class SoapClient {
 
       // 4. پردازش پاسخ
       if (response.statusCode == 200) {
-        try {
+       try {
          final xmlDoc = xml.XmlDocument.parse(response.body);
 
           // استخراج نتیجه
           final resultTag = '${method}Result';
           final resultValue = extractValue(xmlDoc, resultTag);
           print("SoapClient → Extracted: $resultValue");
-
 
           if (debugMode && resultValue != null) {
             print(' Extracted $resultTag:');

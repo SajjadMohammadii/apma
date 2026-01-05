@@ -19,7 +19,6 @@ class CommutingRemoteDataSourceImpl implements CommutingRemoteDataSource {
   final SoapClient soapClient;
 
   static const String namespace = 'http://apmaco.com/';
-
   static const String methodGetLastItem = 'PersonCommutingGetLastItem';
   static const String methodGetServerDate = 'GetServerDate';
   static const String methodGetServerDateTime = 'GetServerDateTime';

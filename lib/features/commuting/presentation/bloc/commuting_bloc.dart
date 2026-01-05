@@ -129,6 +129,7 @@ class CommutingBloc extends Bloc<CommutingEvent, CommutingState> {
         emit(GetServerTimeReady(
         serverRaw: raw,
         serverTime: serverTime,
+        serverDate: serverDate,
       ));
 
       _serverRaw = raw;
@@ -267,8 +268,12 @@ class CommutingBloc extends Bloc<CommutingEvent, CommutingState> {
 
     try {
 
+      final pos = await locationService.getCurrentPosition();
+      final lat = pos.latitude;
+      final lng = pos.longitude;
+
       final last = await repository.insertCommuting(PersonID: event.personId,
-          IsEntry: event.selectedStatus, InsertMode: 1, Latitude: 0.0, Longitude: 0.0);
+          IsEntry: event.selectedStatus, InsertMode: 1, Latitude: lat, Longitude: lng);
 
       //todo
       // add(LoadLastStatusEvent(event.personId));

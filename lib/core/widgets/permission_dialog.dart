@@ -1,4 +1,6 @@
 
+import 'dart:io';
+
 import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
 import 'package:apma_app/core/services/permission_service.dart'; // سرویس دسترسی‌ها
 import 'package:apma_app/core/widgets/apmaco_logo.dart'; // ویجت لوگو
@@ -48,10 +50,21 @@ class _PermissionDialogState extends State<PermissionDialog>
 
   // متد _requestPermissions - درخواست دسترسی‌ها
   Future<void> _requestPermissions() async {
+    late final deniedList;
+    late final allGranted;
+    final int sdkInt = int.tryParse(Platform.version.split(' ').first) ?? 0;
+    if (sdkInt >= 33) {
+      allGranted =
+      await PermissionService.requestAllPermissionsUp33(); // درخواست دسترسی‌ها
+      // گرفتن لیست دسترسی‌های رد شده
+      deniedList = await PermissionService.getDeniedPermissionsUp33();
+    }else{
+      allGranted =
+      await PermissionService.requestAllPermissionsUnder33(); // درخواست دسترسی‌ها
+      // گرفتن لیست دسترسی‌های رد شده
+      deniedList = await PermissionService.getDeniedPermissionsUnder33();
+    }
     setState(() => _isRequesting = true); // شروع درخواست
-
-    final allGranted =
-        await PermissionService.requestAllPermissions(); // درخواست دسترسی‌ها
 
     setState(() => _isRequesting = false); // پایان درخواست
 
@@ -64,8 +77,6 @@ class _PermissionDialogState extends State<PermissionDialog>
       // اگر برخی دسترسی‌ها رد شدند - نره جلو!
       developer.log(' برخی دسترسی‌ها رد شدند - باید همه داده بشه');
 
-      // گرفتن لیست دسترسی‌های رد شده
-      final deniedList = await PermissionService.getDeniedPermissions();
       final deniedText = deniedList.join('، ');
 
       if (mounted) {
@@ -275,9 +286,9 @@ class _PermissionDialogState extends State<PermissionDialog>
                           height: 50,
                           child: ElevatedButton(
                             onPressed:
-                                _isRequesting
-                                    ? null
-                                    : _requestPermissions, // غیرفعال در حین درخواست
+                            _isRequesting
+                                ? null
+                                : _requestPermissions, // غیرفعال در حین درخواست
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryOrange,
                               foregroundColor: Colors.white,
@@ -290,39 +301,39 @@ class _PermissionDialogState extends State<PermissionDialog>
                               ),
                             ),
                             child:
-                                _isRequesting
-                                    ? const SizedBox(
-                                      // نمایش لودینگ در حین درخواست
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                      ),
-                                    )
-                                    : const Row(
-                                      // نمایش متن و آیکون دکمه
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.check_circle_outline,
-                                          size: 22,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'اعطای دسترسی‌ها',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'Vazir',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                            _isRequesting
+                                ? const SizedBox(
+                              // نمایش لودینگ در حین درخواست
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                                : const Row(
+                              // نمایش متن و آیکون دکمه
+                              mainAxisAlignment:
+                              MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  size: 22,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'اعطای دسترسی‌ها',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Vazir',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
@@ -364,11 +375,11 @@ class _PermissionDialogState extends State<PermissionDialog>
   // پارامتر subtitle: توضیحات دسترسی
   // پارامتر color: رنگ آیکون
   Widget _permissionTile(
-    IconData icon,
-    String title,
-    String subtitle,
-    Color color,
-  ) {
+      IconData icon,
+      String title,
+      String subtitle,
+      Color color,
+      ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(

@@ -1,39 +1,38 @@
 import 'package:http/http.dart' as api;
-import 'bank_repository.dart' as remote;
+import '../../data/models/ChequeRequest.dart';
+import 'cheque_repository.dart' as remote;
 
-abstract class BankRepository {
-
-  // Future<InsertCommuting?> insertCommuting({String PersonID, int IsEntry, int InsertMode, double Latitude, double Longitude});
-  Future<LoadDriverRelatedCheques?> loadDriverRelatedCheques();
+/// تعریف انتزاعی ریپازیتوری
+abstract class ChequeRepository {
+  Future<LoadDriverRelatedCheques?> loadDriverRelatedCheques(
+      ChequeRequest request);
 }
 
-//..................................................................................
-
+/// مدل خروجی (Response)
 class LoadDriverRelatedCheques {
-  final String? currentServerTime; // yyyyMMddHHmmss or null
-  LoadDriverRelatedCheques({this.currentServerTime});
+  final int error;
+  final List<Map<String, dynamic>> items;
+
+  LoadDriverRelatedCheques({
+    required this.error,
+    required this.items,
+  });
+
+  factory LoadDriverRelatedCheques.fromJson(Map<String, dynamic> json) {
+    return LoadDriverRelatedCheques(
+      error: json["Error"] ?? 1,
+      items: (json["Items"] as List<dynamic>?)
+          ?.map((e) => e as Map<String, dynamic>)
+          .toList() ??
+          [],
+    );
+  }
 }
 
-//..................................................................................
-Future<Map<String, dynamic>> loadDriverRelatedCheques() async {
-  final response = await remote.loadDriverRelatedCheques();
+/// متد کمکی برای فراخوانی ریموت
+Future<Map<String, dynamic>> loadDriverRelatedCheques(
+    ChequeRequest request) async {
+  final response = await remote.loadDriverRelatedCheques(request);
   return response;
 }
 
-//..................................................................................
-
-// class ChequeRepository {
-//   Future<ChequeResponse> loadDriverRelatedCheques(ChequeRequest request) async {
-//     // فرض: اینجا متد LoadDriverRelatedChequesList از طریق API یا PlatformChannel صدا زده می‌شود
-//     final responseString = await callLoadDriverRelatedChequesList(request.toJsonString());
-//
-//     final Map<String, dynamic> jsonResponse = jsonDecode(responseString);
-//     return ChequeResponse.fromJson(jsonResponse);
-//   }
-//
-//   Future<String> callLoadDriverRelatedChequesList(String requestJson) async {
-//     // اینجا باید ارتباط با سرور یا Native برقرار شود
-//     // برای نمونه:
-//     return Future.value('{"Error":0,"Items":[{"ChequeNumber":"123","PersonID":"456","Status":1}]}');
-//   }
-// }

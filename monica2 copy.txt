@@ -1,0 +1,1318 @@
+// core/network/soap_client.dart
+import 'package:http/http.dart' as http;
+import 'package:xml/xml.dart' as xml;
+import 'dart:convert';
+import 'dart:developer' as developer;
+import 'dart:async';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
+// کلاس SoapClient با لاگ‌گیری کامل ورودی و خروجی
+class SoapClient {
+  final String baseUrl;
+  final http.Client httpClient;
+  final bool debugMode;
+
+  static const int _maxLogHistory = 100;
+
+  SoapClient({
+    required this.baseUrl,
+    http.Client? httpClient,
+    this.debugMode = true,
+  }) : httpClient = httpClient ?? http.Client();
+//..................................................................................
+  /// ارسال درخواست SOAP با لاگ‌گیری کامل
+  Future<xml.XmlDocument> call({
+    required String method,
+    required Map<String, String> parameters,
+    String? namespace,
+    String? soapAction,
+  }) async {
+    final startTime = DateTime.now();
+    final requestId = DateTime.now().millisecondsSinceEpoch.toString();
+    Stopwatch? stopwatch;
+
+    // 1. لاگ ورودی (درخواست ارسالی به سرور)
+    try {
+      // ساخت SOAP Envelope
+      final soapEnvelope = _buildSoapEnvelope(
+        method: method,
+        parameters: parameters,
+        namespace: namespace ?? 'http://tempuri.org/',
+      );
+      print("soapEnvelope_ : $soapEnvelope");
+
+      if (debugMode) {
+        developer.log( 'SOAP Request Envelope:\n$soapEnvelope',
+          name: 'SoapClient', level: 800,  );
+      }
+
+      // تنظیم هدرها
+      final headers = {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'User-Agent': 'Flutter SOAP Client/1.0',
+        if (soapAction != null) 'SOAPAction': '"$soapAction"',
+      };
+
+      // 2. ارسال درخواست
+     stopwatch = Stopwatch()..start();
+      final response = await httpClient.post(
+        Uri.parse(baseUrl),
+        headers: headers,
+        body: soapEnvelope,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          final duration = stopwatch?.elapsedMilliseconds ?? 0;
+
+          throw SoapException('Connection timeout after 30 seconds');
+        },
+      );
+
+      stopwatch.stop();
+      final duration = stopwatch.elapsedMilliseconds;
+      final endTime = DateTime.now();
+
+      // 4. پردازش پاسخ
+      if (response.statusCode == 200) {
+        try {
+         final xmlDoc = xml.XmlDocument.parse(response.body);
+
+          // استخراج نتیجه
+          final resultTag = '${method}Result';
+          final resultValue = extractValue(xmlDoc, resultTag);
+          print("SoapClient → Extracted: $resultValue");
+
+
+          if (debugMode && resultValue != null) {
+            print(' Extracted $resultTag:');
+            if (resultValue.length > 500) {
+              print('${resultValue.substring(0, 500)}...');
+            } else {
+              print(resultValue);
+            }
+          }
+
+          return xmlDoc;
+        } catch (e) {
+          final error = SoapException('XML Parse Error: $e');
+          throw error;
+        }
+      } else if (response.statusCode == 500) {
+        final errorMsg = _extractServerError(response.body);
+        final error = SoapException('Server Error 500: $errorMsg');
+        throw error;
+      } else {
+        final error = SoapException('HTTP ${response.statusCode}: ${response.body.length > 200 ? response.body.substring(0, 200) + '...' : response.body}');
+        throw error;
+      }
+    } on http.ClientException catch (e) {
+      final duration = stopwatch?.elapsedMilliseconds ?? 0;
+
+      throw SoapException('Connection Error: $e');
+    } catch (e, stackTrace) {
+      final duration = stopwatch?.elapsedMilliseconds ?? 0;
+
+
+      rethrow;
+    } finally {
+
+    }
+  }
+//..................................................................................
+  /// ساخت SOAP Envelope
+  String _buildSoapEnvelope({
+    required String method,
+    required Map<String, String> parameters,
+    required String namespace,
+  }) {
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="utf-8"?>');
+    buffer.writeln(
+      '<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+          'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+          'xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">',
+    );
+    buffer.writeln('<soap:Body>');
+    buffer.writeln('<$method xmlns="$namespace">');
+
+    parameters.forEach((key, value) {
+      buffer.writeln('<$key>${_escapeXml(value)}</$key>');
+    });
+
+    buffer.writeln('</$method>');
+    buffer.writeln('</soap:Body>');
+    buffer.writeln('</soap:Envelope>');
+
+    return buffer.toString();
+  }
+//..................................................................................
+  /// فرار از کاراکترهای XML
+  String _escapeXml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+  }
+//..................................................................................
+  /// استخراج خطا از پاسخ سرور
+  String _extractServerError(String body) {
+    try {
+      final patterns = [
+        r'<faultstring[^>]*>(.*?)</faultstring>',
+        r'<faultstring>(.*?)</faultstring>',
+        r'<Message[^>]*>(.*?)</Message>',
+        r'<message[^>]*>(.*?)</message>',
+        r'<error[^>]*>(.*?)</error>',
+        r'<Error[^>]*>(.*?)</Error>',
+      ];
+
+      for (var pattern in patterns) {
+        final match = RegExp(pattern, dotAll: true).firstMatch(body);
+        if (match != null && match.group(1)?.trim().isNotEmpty == true) {
+          return match.group(1)!.trim();
+        }
+      }
+
+      return body.length > 500
+          ? body.substring(0, 500) + '...'
+          : body;
+    } catch (e) {
+      return 'Error extracting error message: $e';
+    }
+  }
+//..................................................................................
+  /// استخراج مقدار از XML
+  String? extractValue(xml.XmlDocument doc, String tagName) {
+    try {
+      final elements = doc.findAllElements(tagName);
+      if (elements.isNotEmpty) {
+        return elements.first.innerText.trim();
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+//..................................................................................
+  /// تست اتصال
+  Future<bool> testConnection() async {
+    try {
+      final response = await call(
+        method: 'GetServerDate',
+        parameters: {},
+      );
+      return extractValue(response, 'GetServerDateResult') != null;
+    } catch (e) {
+      return false;
+    }
+  }
+//..................................................................................
+  /// بستن کلاینت
+  void dispose() => httpClient.close();
+}
+
+/// استثنای SOAP
+class SoapException implements Exception {
+  final String message;
+  final DateTime timestamp = DateTime.now();
+
+  SoapException(this.message);
+
+  @override
+  String toString() => 'SoapException[$timestamp]: $message';
+}
+
+//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.....// lib/features/commuting/presentation/bloc/commuting_bloc.dart
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:math';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
+import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../domain/repositories/commuting_repository.dart' as remote;
+import 'commuting_event.dart';
+import 'commuting_state.dart';
+import 'package:apma_app/core/services/location_service.dart';
+import 'package:apma_app/features/commuting/domain/repositories/commuting_repository.dart' hide GetServerDateTime_, GetGeneralSettings_;
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'commuting_event.dart';
+import 'commuting_state.dart';
+
+class CommutingBloc extends Bloc<CommutingEvent, CommutingState> {
+  final CommutingRepository repository; // فرض بر این است که این یک کلاس برای ارتباط با سرور است.
+  final LocationService locationService;
+
+  CommutingBloc({
+    required this.repository,
+    required this.locationService,
+  }) : super(CommutingInitial());
+
+  @override
+  Stream<CommutingState> mapEventToState(CommutingEvent event) async* {
+    if (event is SubmitCommutingEvent) {
+      yield CommutingLoading(); // نمایش وضعیت بارگذاری
+
+      try {
+        // ثبت وضعیت ورود یا خروج
+        await repository.registerCommuting(event.jsonString);
+
+        // فرض بر این است که بعد از ثبت، وضعیت آخرین وضعیت را دریافت می‌کنید
+        final lastStatus = await repository.fetchLastCommutingStatus(event.personId);
+
+        // تولید وضعیت جدید با آخرین وضعیت
+        yield CommutingLoaded(lastStatus as String);
+      } catch (e) {
+        yield CommutingError(e.toString());
+      }
+    }
+  }
+}
+.............................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//...............// lib/features/commuting/domain/repositories/commuting_repository.dart
+import 'package:http/http.dart' as api;
+
+import '../../data/datasources/commuting_remote_datasource.dart';
+import 'commuting_repository.dart' as remote;
+
+abstract class CommutingRepository {
+  Future<Map<String, dynamic>> fetchLastCommutingStatus(String personId);
+  Future<String> fetchServerDate();
+  Future<String> fetchServerDateTime();
+  Future<int> fetchGeneralSettings();
+  Future<void> registerCommuting(String jsonString);
+}
+
+class CommutingRepositoryImpl implements CommutingRepository {
+  final CommutingRemoteDataSource remote;
+
+  CommutingRepositoryImpl({required this.remote});
+
+  @override
+  Future<Map<String, dynamic>> fetchLastCommutingStatus(String personId) {
+    return remote.getLastCommutingStatus(personId);
+  }
+
+  @override
+  Future<String> fetchServerDate() {
+    return remote.getServerDate();
+  }
+
+  @override
+  Future<String> fetchServerDateTime() {
+    return remote.getServerDateTime();
+  }
+
+  @override
+  Future<int> fetchGeneralSettings() {
+    return remote.getGeneralSettings();
+  }
+
+  @override
+  Future<void> registerCommuting(String jsonString) {
+    return remote.insertPersonCommuting(jsonString);
+  }
+}
+
+...................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.............................import 'dart:convert';
+import 'package:xml/xml.dart' as xml;
+import '../../../../core/network/soap_client.dart';
+
+
+// کلاس منبع داده از راه دور
+abstract class CommutingRemoteDataSource {
+  Future<Map<String, dynamic>> getLastCommutingStatus(String personId);
+  Future<String> getServerDate();
+  Future<String> getServerDateTime();
+  Future<int> getGeneralSettings();
+  Future<void> insertPersonCommuting(String jsonString);
+}
+
+class CommutingRemoteDataSourceImpl implements CommutingRemoteDataSource {
+  final SoapClient soapClient;
+
+  CommutingRemoteDataSourceImpl({required this.soapClient});
+
+  @override
+  Future<Map<String, dynamic>> getLastCommutingStatus(String personId) async {
+    final response = await soapClient.call(
+      method: 'PersonCommutingGetLastItem',
+      parameters: {'PersonID': personId},
+    );
+    final resultTag = 'PersonCommutingGetLastItemResult'; // نام تگ نتیجه
+    final resultValue = soapClient.extractValue(response, resultTag);
+
+    // فرض بر این است که resultValue یک JSON String است
+    return jsonDecode(resultValue!);
+  }
+
+  @override
+  Future<String> getServerDate() async {
+    final response = await soapClient.call(
+      method: 'GetServerDate',
+      parameters: {},
+    );
+    final resultTag = 'GetServerDateResult'; // نام تگ نتیجه
+    return soapClient.extractValue(response, resultTag)!;
+  }
+
+  @override
+  Future<String> getServerDateTime() async {
+    final response = await soapClient.call(
+      method: 'GetServerDateTime',
+      parameters: {},
+    );
+    final resultTag = 'GetServerDateTimeResult'; // نام تگ نتیجه
+    return soapClient.extractValue(response, resultTag)!;
+  }
+
+  @override
+  Future<int> getGeneralSettings() async {
+    final response = await soapClient.call(
+      method: 'GetGeneralSettings',
+      parameters: {},
+    );
+    final resultTag = 'GetGeneralSettingsResult'; // نام تگ نتیجه
+    final jsonResponse = jsonDecode(soapClient.extractValue(response, resultTag)!);
+    return jsonResponse['CommutingRepeatedInterval'];
+  }
+
+  @override
+  Future<void> insertPersonCommuting(String jsonString) async {
+    await soapClient.call(
+      method: 'InsertPersonCommuting',
+      parameters: {'data': jsonString},
+    );
+  }
+}
+.....................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//........................................// lib/features/commuting/presentation/bloc/commuting_event.dart
+import 'dart:convert';
+
+import 'package:equatable/equatable.dart';
+
+abstract class CommutingEvent {}
+
+class LoadLastStatusEvent extends CommutingEvent {
+  final String personId;
+
+  LoadLastStatusEvent(this.personId);
+}
+
+class SubmitCommutingEvent extends CommutingEvent {
+  final String personId;
+  final int selectedStatus; // فرض بر این است که نوع selectedStatus عددی است
+  final String jsonString; // اضافه کردن jsonString
+
+  SubmitCommutingEvent({
+    required this.personId,
+    required this.selectedStatus,
+    required this.jsonString, // نیاز به ارسال jsonString
+  });
+}
+
+
+..........................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.....................................................// lib/features/commuting/presentation/bloc/commuting_state.dart
+import 'package:equatable/equatable.dart';
+
+// commuting_state.dart
+
+abstract class CommutingState {}
+
+class CommutingInitial extends CommutingState {}
+
+class CommutingLoading extends CommutingState {}
+
+class CommutingLoaded extends CommutingState {
+  final String lastStatus; // فرض بر این است که آخرین وضعیت یک رشته است
+
+  CommutingLoaded(this.lastStatus);
+}
+
+class CommutingReady extends CommutingState {
+  final String lastStatus;
+
+  CommutingReady(this.lastStatus);
+}
+
+class CommutingSubmitted extends CommutingState {}
+
+class CommutingError extends CommutingState {
+  final String message;
+
+  CommutingError(this.message);
+}
+
+
+
+.............................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.................................................................import 'dart:async';
+import 'dart:ffi';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:apma_app/core/constants/app_colors.dart';
+import '../../../core/constants/app_constant.dart';
+import '../../../core/di/injection_container.dart';
+import '../../../core/network/soap_client.dart';
+import '../../../core/services/location_service.dart';
+import '../../../features/commuting/data/datasources/commuting_remote_datasource.dart';
+import '../../../features/commuting/domain/repositories/commuting_repository.dart';
+import '../../../features/commuting/presentation/bloc/commuting_bloc.dart';
+import '../../../features/commuting/presentation/bloc/commuting_event.dart';
+import '../../../features/commuting/presentation/bloc/commuting_state.dart';
+
+import 'dart:async';
+import 'dart:ffi';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:apma_app/core/constants/app_colors.dart';
+import '../../../features/commuting/domain/repositories/commuting_repository.dart';
+import '../../../features/commuting/presentation/bloc/commuting_bloc.dart';
+import '../../../features/commuting/presentation/bloc/commuting_event.dart';
+import '../../../features/commuting/presentation/bloc/commuting_state.dart';
+
+class EntryExitPage extends StatefulWidget {
+  const EntryExitPage({super.key});
+
+  @override
+  State<EntryExitPage> createState() => _EntryExitPageState();
+}
+
+// کلاس _EntryExitPageState - state صفحه ورود و خروج
+class _EntryExitPageState extends State<EntryExitPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController; // کنترلر انیمیشن
+  late Animation<double> _pulseAnimation; // انیمیشن پالس
+
+  bool _isCheckedIn = false; // وضعیت حضور (ورود شده یا خیر)
+  String _currentTime = ''; // زمان فعلی
+  String _currentDate = ''; // تاریخ فعلی
+
+  String? _personId; // شناسه کارمند برای ارسال به سرور
+  Timer? _timer; // تایمر به‌روزرسانی زمان
+
+  late CommutingBloc _commutingBloc; // بلاک مدیریت وضعیت
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTime(); // شروع به‌روزرسانی زمان
+
+    _initCommutingBloc();
+
+    // تنظیم انیمیشن پالس
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    // گرفتن personId از SharedPreferences و ارسال درخواست ابتدای صفحه
+    _loadEmployeeIdAndRequest();
+  }
+
+  Future<void> _initCommutingBloc() async {
+    final commutingRepository = sl<CommutingRepository>();
+    final locationService = sl<LocationService>();
+    _commutingBloc = CommutingBloc(
+      repository: commutingRepository,
+      locationService: locationService,
+    );
+  }
+
+  Future<void> _loadEmployeeIdAndRequest() async {
+    final url = AppConstants.serverUrl;
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString("personId");
+    if (!mounted) return;
+
+    setState(() {
+      _personId = id;
+    });
+
+    if (id != null) {
+      // دریافت نمونه‌های مورد نیاز از Service Locator
+      final commutingRepository = sl<CommutingRepository>();
+      final locationService = sl<LocationService>();
+
+      // ایجاد بلاک commuting با ارسال repository و locationService
+      _commutingBloc = CommutingBloc(
+        repository: commutingRepository, // ارسال repository
+        locationService: locationService, // ارسال locationService
+      );
+
+      _commutingBloc.add(LoadLastStatusEvent(id));
+    }
+  }
+
+  // متد _updateTime - به‌روزرسانی زمان و تاریخ هر ثانیه
+  void _updateTime() {
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    setState(() {
+      _currentTime =
+      '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      _currentDate =
+      '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+    });
+
+    _timer = Timer(const Duration(seconds: 1), _updateTime); // تایمر بازگشتی
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // لغو تایمر
+    _animationController.dispose(); // آزادسازی کنترلر انیمیشن
+    super.dispose();
+  }
+
+  // متد _toggleCheckIn - تغییر وضعیت ورود/خروج
+  void _toggleCheckIn() {
+    setState(() {
+      _isCheckedIn = !_isCheckedIn;
+    });
+
+    if (_personId != null) {
+      // فرض بر این است که jsonString را به شکل مناسب ایجاد کرده‌اید
+      String jsonString = '{"personId": "${_personId}", "status": ${_isCheckedIn ? 1 : 0}}';
+
+      context.read<CommutingBloc>().add(
+        SubmitCommutingEvent(
+          personId: _personId!,
+          selectedStatus: _isCheckedIn ? 1 : 0, // 1: ورود، 0: خروج
+          jsonString: jsonString, // اضافه کردن jsonString
+        ),
+      );
+    }
+
+    // نمایش پیام موفقیت
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isCheckedIn ? 'ورود ثبت شد' : 'خروج ثبت شد',
+          style: const TextStyle(fontFamily: 'Vazir'),
+        ),
+        backgroundColor: _isCheckedIn ? Colors.green : Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => _commutingBloc,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        appBar: AppBar(
+          title: const Text(
+            'ورود و خروج',
+            style: TextStyle(fontFamily: 'Vazir', color: Colors.white),
+          ),
+          backgroundColor: AppColors.primaryGreen,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          centerTitle: true,
+        ),
+        body: BlocListener<CommutingBloc, CommutingState>(
+          listener: (context, state) {
+            if (state is CommutingLoading) {
+              print(" CommutingLoading...");
+            } else if (state is CommutingReady) {
+              print(" CommutingReady:");
+              print("آخرین وضعیت: ${state.lastStatus}");
+            } else if (state is CommutingSubmitted) {
+              print(" CommutingSubmitted: ثبت موفق انجام شد");
+            } else if (state is CommutingError) {
+              print(" CommutingError: ${state.message}");
+            }
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildTimeCard(),
+                const SizedBox(height: 20),
+                _buildCheckInButton(),
+                const SizedBox(height: 20),
+                _buildTodayRecords(),
+                const SizedBox(height: 20),
+                _buildWeeklyStats(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryPurple,
+            AppColors.primaryPurple.withOpacity(0.7),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryPurple.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            _currentTime,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 56,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Vazir',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _currentDate,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 20,
+              fontFamily: 'Vazir',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isCheckedIn ? Icons.login : Icons.logout,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isCheckedIn ? 'وضعیت: حاضر' : 'وضعیت: خارج',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontFamily: 'Vazir',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckInButton() {
+    return ScaleTransition(
+      scale: _pulseAnimation,
+      child: GestureDetector(
+        onTap: _toggleCheckIn,
+        child: Container(
+          width: 160,
+          height: 160,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: _isCheckedIn
+                  ? [Colors.orange, Colors.deepOrange]
+                  : [AppColors.primaryGreen, Colors.teal],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (_isCheckedIn ? Colors.orange : AppColors.primaryGreen)
+                    .withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _isCheckedIn ? Icons.logout : Icons.fingerprint,
+                color: Colors.white,
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _isCheckedIn ? 'ثبت خروج' : 'ثبت ورود',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayRecords() {
+    // داده‌های نمونه - سوابق امروز
+    final List<Map<String, dynamic>> _todayRecords = [
+      {'type': 'entry', 'time': '08:30', 'status': 'تایید شده'},
+      {'type': 'exit', 'time': '12:00', 'status': 'تایید شده'},
+      {'type': 'entry', 'time': '13:00', 'status': 'تایید شده'},
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.today,
+                  color: AppColors.primaryGreen,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'رکوردهای امروز',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._todayRecords.map((record) => _buildRecordItem(record)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecordItem(Map<String, dynamic> record) {
+    final isEntry = record['type'] == 'entry';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: (isEntry ? Colors.green : Colors.orange).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: (isEntry ? Colors.green : Colors.orange).withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isEntry ? Colors.green : Colors.orange,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isEntry ? Icons.login : Icons.logout,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEntry ? 'ورود' : 'خروج',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Vazir',
+                  ),
+                ),
+                Text(
+                  'ساعت ${record['time']}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontFamily: 'Vazir',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: record['status'] == 'تایید شده'
+                  ? Colors.green.withOpacity(0.2)
+                  : Colors.amber.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              record['status'],
+              style: TextStyle(
+                color: record['status'] == 'تایید شده'
+                    ? Colors.green[700]
+                    : Colors.amber[700],
+                fontSize: 11,
+                fontFamily: 'Vazir',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyStats() {
+    // داده‌های نمونه - آمار هفتگی
+    final List<Map<String, dynamic>> _weeklyStats = [
+      {'day': 'شنبه', 'hours': '8:30', 'status': 'کامل'},
+      {'day': 'یکشنبه', 'hours': '7:45', 'status': 'کسری'},
+      {'day': 'دوشنبه', 'hours': '9:00', 'status': 'اضافه‌کار'},
+      {'day': 'سه‌شنبه', 'hours': '8:00', 'status': 'کامل'},
+      {'day': 'چهارشنبه', 'hours': '7:00', 'status': 'کامل'},
+      {'day': 'پنج شنبه', 'hours': '-', 'status': 'امروز'},
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.bar_chart,
+                  color: AppColors.primaryPurple,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'آمار هفتگی',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._weeklyStats.map((stat) => _buildStatItem(stat)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(Map<String, dynamic> stat) {
+    Color statusColor;
+    switch (stat['status']) {
+      case 'کامل':
+        statusColor = Colors.green;
+        break;
+      case 'کسری':
+        statusColor = Colors.red;
+        break;
+      case 'اضافه‌کار':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(
+              stat['day'],
+              style: const TextStyle(
+                fontFamily: 'Vazir',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: stat['hours'] == '-'
+                  ? 0
+                  : double.tryParse(stat['hours'].split(':')[0]) ?? 0 / 10,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 50,
+            child: Text(
+              stat['hours'],
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Vazir',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Container(
+            width: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              stat['status'],
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 10,
+                fontFamily: 'Vazir',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+/*
+class EntryExitPage extends StatefulWidget {
+  @override
+  _EntryExitPageState createState() => _EntryExitPageState();
+}
+
+class _EntryExitPageState extends State<EntryExitPage> {
+  late CommutingBloc _commutingBloc;
+  bool _isCheckedIn = true; // وضعیت ورود/خروج
+  String _personId = "12345"; // شناسه کارمند (برای مثال)
+  String _lastStatus = "NULL"; // آخرین وضعیت
+  Color _buttonColor = Colors.green; // رنگ دکمه
+
+  @override
+  void initState() {
+    super.initState();
+    _commutingBloc = CommutingBloc(CommutingRepositoryImpl(CommutingRemoteDataSourceImpl(SoapClient())));
+    _commutingBloc.add(LoadLastStatusEvent(_personId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => _commutingBloc,
+      child: Scaffold(
+        appBar: AppBar(title: Text("ثبت ورود و خروج")),
+        body: BlocListener<CommutingBloc, CommutingState>(
+          listener: (context, state) {
+            if (state is CommutingLoaded) {
+              _updateUIWithLastStatus(state.lastStatus);
+            } else if (state is CommutingSubmitted) {
+              _showSuccessMessage();
+            } else if (state is CommutingError) {
+              _showErrorMessage(state.message);
+            }
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // نمایش آخرین وضعیت
+              Text("آخرین وضعیت: $_lastStatus"),
+              // دکمه ثبت
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  primary: _buttonColor, // رنگ دکمه بر اساس وضعیت
+                ),
+                onPressed: _submitCommuting,
+                child: Text(_isCheckedIn ? "ثبت ورود" : "ثبت خروج"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _updateUIWithLastStatus(Map<String, dynamic> lastStatus) {
+    setState(() {
+      _lastStatus = lastStatus['State'] == 1 ? "ورود" : "خروج";
+      _isCheckedIn = lastStatus['State'] == 0; // اگر آخرین وضعیت خروج باشد، ورود را انتخاب کن
+      _buttonColor = _isCheckedIn ? Colors.green : Colors.orange; // تغییر رنگ دکمه
+    });
+  }
+
+  void _submitCommuting() async {
+    String jsonString = jsonEncode({
+      'PersonID': _personId,
+      'IsEntry': _isCheckedIn ? 1 : 0,
+      'InsertMode': _isCheckedIn ? 1 : 0,
+      'Latitude': 0.0, // عرض جغرافیایی
+      'Longitude': 0.0, // طول جغرافیایی
+    });
+    _commutingBloc.add(SubmitCommutingEvent(jsonString));
+  }
+
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("ثبت موفقیت آمیز بود")));
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+*/
+.................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.........................................................................// تنظیم تزریق وابستگی با استفاده از GetIt service locator
+// مرتبط با: main.dart, auth_bloc.dart, تمام repositoryها و use caseها
+
+import 'package:apma_app/core/network/soap_client.dart'; // کلاینت SOAP
+import 'package:apma_app/core/services/local_storage_service.dart'; // سرویس ذخیره‌سازی محلی
+import 'package:apma_app/features/auth/data/datasources/auth_remote_datasource.dart'; // منبع داده راه دور
+import 'package:apma_app/features/auth/data/repositories/auth_repository_impl.dart'; // پیاده‌سازی ریپازیتوری
+import 'package:apma_app/features/auth/domain/repositories/auth_repository.dart'; // رابط ریپازیتوری
+import 'package:apma_app/features/auth/domain/usecases/login_usecase.dart'; // یوزکیس ورود
+import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
+import 'package:get_it/get_it.dart'; // کتابخانه GetIt برای تزریق وابستگی
+import 'package:shared_preferences/shared_preferences.dart'; // ذخیره‌سازی تنظیمات
+import 'package:http/http.dart' as http;
+import 'package:apma_app/core/services/location_service.dart'; // سرویس موقعیت
+import '../../features/commuting/data/datasources/commuting_remote_datasource.dart'; // منبع داده commuting
+import '../../features/commuting/domain/repositories/commuting_repository.dart'; // رابط ریپازیتوری commuting
+import '../../features/commuting/presentation/bloc/commuting_bloc.dart'; // بلاک commuting
+
+// متغیر sl - نمونه GetIt برای استفاده در سایر فایل‌ها (Service Locator)
+final sl = GetIt.instance;
+
+// تابع init - مقداردهی اولیه تمام وابستگی‌ها
+Future<void> init() async {
+  //! ویژگی‌ها - احراز هویت
+
+  // بلاک - ثبت به صورت Factory (هر بار نمونه جدید)
+  sl.registerFactory(
+        () => AuthBloc(
+      loginUseCase: sl(), // یوزکیس ورود
+      repository: sl(), // ریپازیتوری
+      localStorageService: sl(), // سرویس ذخیره‌سازی محلی
+    ),
+  );
+
+  // یوزکیس‌ها - ثبت به صورت LazySingleton
+  sl.registerLazySingleton(() => LoginUseCase(sl()));
+
+  // ریپازیتوری - ثبت به صورت LazySingleton
+  sl.registerLazySingleton<AuthRepository>(
+        () => AuthRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // منابع داده - استفاده از SOAP
+  sl.registerLazySingleton<AuthRemoteDataSource>(
+        () => AuthRemoteDataSourceImpl(soapClient: sl()),
+  );
+
+  //! هسته
+
+  // سرویس ذخیره‌سازی محلی - مقداردهی و ثبت
+  final localStorageService = LocalStorageService();
+  await localStorageService.init(); // مقداردهی اولیه
+  sl.registerLazySingleton(() => localStorageService);
+
+  // کلاینت SOAP - ثبت با آدرس وب‌سرویس
+  sl.registerLazySingleton<SoapClient>(
+        () => SoapClient(
+      baseUrl: AuthRemoteDataSourceImpl.webServiceUrl, // آدرس وب‌سرویس
+      httpClient: sl(), // کلاینت HTTP
+    ),
+  );
+
+  //! خارجی
+
+  // کلاینت HTTP - ثبت به صورت LazySingleton
+  sl.registerLazySingleton(() => http.Client());
+
+  // SharedPreferences - دریافت نمونه و ثبت
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
+
+  // بلاک commuting
+  sl.registerFactory(
+        () => CommutingBloc(
+      repository: sl<CommutingRepository>(), // ارسال repository
+      locationService: sl<LocationService>(), // ارسال locationService
+    ),
+  );
+
+  // دیتا‌سورس SOAP commuting
+  sl.registerLazySingleton<CommutingRemoteDataSource>(
+        () => CommutingRemoteDataSourceImpl(soapClient: sl()), // ارسال soapClient
+  );
+
+  // ریپازیتوری commuting
+  sl.registerLazySingleton<CommutingRepository>(
+        () => CommutingRepositoryImpl(remote: sl<CommutingRemoteDataSource>()), // ارسال remote
+  );
+
+  // ثبت LocationService
+  sl.registerLazySingleton<LocationService>(() => LocationService());
+}
+.........//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................//.............................................................................// lib/core/services/location_service.dart
+import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:geolocator/geolocator.dart';
+
+class LocationService {
+  Future<Position> getCurrentPosition() async {
+    // 1) سرویس لوکیشن روشن باشد
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled');
+    }
+
+    // 2) مجوزها
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied) {
+      throw Exception('Location permission denied');
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permission permanently denied');
+    }
+
+    // 3) iOS Precise check
+    if (Platform.isIOS) {
+      final status = await Geolocator.getLocationAccuracy();
+      if (status == LocationAccuracyStatus.reduced) {
+        throw Exception(
+            'iOS Precise Location is OFF. Enable "Precise Location" in Settings.');
+      }
+    }
+
+    // 4) تلاش سریع
+    try {
+      final quick = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 3),
+      );
+      if (quick.accuracy <= 50) {
+        return quick;
+      }
+    } catch (_) {
+      // ادامه می‌دهیم
+    }
+
+    // 5) گوش دادن به استریم تا رسیدن به دقت مطلوب
+    final settings = const LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 0,
+
+    );
+
+    final controller = StreamController<Position>();
+    final sub = Geolocator.getPositionStream(locationSettings: settings).listen(
+          (pos) {
+        controller.add(pos);
+        print("location__ : $pos");
+      },
+      onError: (e) {
+        controller.addError(e);
+      },
+    );
+
+    try {
+      final pos = await controller.stream
+          .firstWhere((p) => p.accuracy <= 50)
+          .timeout(const Duration(seconds: 15));
+      return pos;
+    } on TimeoutException {
+      // اگر به دقت مطلوب نرسید، fallback
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } finally {
+      await sub.cancel();
+      await controller.close();
+    }
+  }
+}
+.....//..................................................................................//..................................................................................//..................................................................................//..................................................................................//..................................................................................
+
+
+

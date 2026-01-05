@@ -3,13 +3,13 @@ import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
 
-/// رویدادهای مربوط به مدیریت ورود/خروج پرسنل
+
 abstract class CommutingEvent extends Equatable {
   @override
   List<Object?> get props => [];
 }
 //.......................................................................
-/// رویداد: گرفتن آخرین وضعیت ورود/خروج کارمند
+
 class LoadLastStatusEvent extends CommutingEvent {
   final String personId;
   LoadLastStatusEvent(this.personId);

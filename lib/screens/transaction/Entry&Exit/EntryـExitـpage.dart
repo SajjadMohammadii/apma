@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:apma_app/core/constants/app_colors.dart';
+import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import '../../../features/commuting/domain/repositories/commuting_repository.dart';
 import '../../../features/commuting/presentation/bloc/commuting_bloc.dart';
 import '../../../features/commuting/presentation/bloc/commuting_event.dart';
@@ -25,28 +27,27 @@ class _EntryExitPageState extends State<EntryExitPage>
   bool _isCheckedIn = false; // وضعیت حضور (ورود شده یا خیر)
   String _currentTime = ''; // زمان فعلی
   String _currentDate = ''; // تاریخ فعلی
+  String _workDuration = '00:00:00'; // مدت زمان کاری
 
   // اضافه: شناسه کارمند برای ارسال به سرور
   String? _personId;
   Double? Lat;
   Double? Lng;
 
-  // داده‌های نمونه - سوابق امروز
-  final List<Map<String, dynamic>> _todayRecords = [
-    {'type': 'entry', 'time': '08:30', 'status': 'تایید شده'},
-    {'type': 'exit', 'time': '12:00', 'status': 'تایید شده'},
-    {'type': 'entry', 'time': '13:00', 'status': 'تایید شده'},
-  ];
+  // داده‌های امروز - بارگذاری از SharedPreferences
+  List<Map<String, dynamic>> _todayRecords = [];
 
-  // داده‌های نمونه - آمار هفتگی
-  final List<Map<String, dynamic>> _weeklyStats = [
-    {'day': 'شنبه', 'hours': '8:30', 'status': 'کامل'},
-    {'day': 'یکشنبه', 'hours': '7:45', 'status': 'کسری'},
-    {'day': 'دوشنبه', 'hours': '9:00', 'status': 'اضافه‌کار'},
-    {'day': 'سه‌شنبه', 'hours': '8:00', 'status': 'کامل'},
-    {'day': 'چهارشنبه', 'hours': '7:00', 'status': 'کامل'},
-    {'day': 'پنج شنبه', 'hours': '-', 'status': 'امروز'},
-  ];
+  // داده‌های آمار هفتگی - محاسبه از رکوردهای ذخیره شده
+  List<Map<String, dynamic>> _weeklyStats = [];
+  
+  // تعداد کل هفته‌ها
+  int _totalWeeks = 0;
+  
+  // اولین تاریخ ورود
+  String? _firstEntryDate;
+  
+  // زمان ورود
+  DateTime? _entryTime;
 
   Timer? _timer; // تایمر به‌روزرسانی زمان
 
@@ -67,6 +68,25 @@ class _EntryExitPageState extends State<EntryExitPage>
 
     // اضافه: گرفتن personId از SharedPreferences و ارسال درخواست ابتدای صفحه
     _loadPersonIdAndRequest();
+    _loadTodayRecords();
+    _loadWeeklyStats();
+    _loadCheckInStatus(); // بارگذاری وضعیت ورود
+  }
+
+  // بارگذاری وضعیت ورود
+  Future<void> _loadCheckInStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isCheckedIn = prefs.getBool('is_checked_in') ?? false;
+    final entryTimeStr = prefs.getString('entry_time');
+    
+    if (mounted) {
+      setState(() {
+        _isCheckedIn = isCheckedIn;
+        if (entryTimeStr != null && isCheckedIn) {
+          _entryTime = DateTime.parse(entryTimeStr);
+        }
+      });
+    }
   }
 
   // اضافه: خواندن personId و ارسال رویداد Bloc برای گرفتن آخرین وضعیت
@@ -82,20 +102,224 @@ class _EntryExitPageState extends State<EntryExitPage>
     }
   }
 
+  // بارگذاری رکوردهای امروز از SharedPreferences
+  Future<void> _loadTodayRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jalaliToday = Jalali.now();
+    final todayKey = '${jalaliToday.year}${jalaliToday.month.toString().padLeft(2, '0')}${jalaliToday.day.toString().padLeft(2, '0')}';
+    
+    final recordsJson = prefs.getString('records_$todayKey');
+    if (recordsJson != null) {
+      final List<dynamic> decoded = jsonDecode(recordsJson);
+      setState(() {
+        _todayRecords = decoded.map((e) => e as Map<String, dynamic>).toList();
+      });
+    }
+  }
+
+  // ذخیره رکورد جدید
+  Future<void> _saveRecordToPrefs(String type, String time, String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jalaliNow = Jalali.now();
+    final todayKey = '${jalaliNow.year}${jalaliNow.month.toString().padLeft(2, '0')}${jalaliNow.day.toString().padLeft(2, '0')}';
+    
+    // ذخیره اولین تاریخ ورود
+    if (type == 'entry') {
+      final firstEntry = prefs.getString('first_entry_date');
+      if (firstEntry == null) {
+        await prefs.setString('first_entry_date', todayKey);
+      }
+    }
+    
+    // گرفتن رکوردهای قبلی
+    final recordsJson = prefs.getString('records_$todayKey');
+    List<Map<String, dynamic>> records = [];
+    if (recordsJson != null) {
+      final List<dynamic> decoded = jsonDecode(recordsJson);
+      records = decoded.map((e) => e as Map<String, dynamic>).toList();
+    }
+    
+    // افزودن رکورد جدید
+    records.add({
+      'type': type,
+      'time': time,
+      'date': date,
+      'status': 'تایید شده',
+    });
+    
+    // ذخیره
+    await prefs.setString('records_$todayKey', jsonEncode(records));
+    
+    // به‌روزرسانی آمار هفتگی
+    await _loadWeeklyStats();
+  }
+
+  // محاسبه آمار هفتگی
+  Future<void> _loadWeeklyStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final firstEntry = prefs.getString('first_entry_date');
+    
+    if (firstEntry == null) {
+      // اگر هیچ وروی ثبت نشده، آمار نمایش داده نشود
+      setState(() {
+        _weeklyStats = [];
+        _totalWeeks = 0;
+        _firstEntryDate = null;
+      });
+      return;
+    }
+    
+    // تبدیل اولین تاریخ ورود
+    final firstYear = int.parse(firstEntry.substring(0, 4));
+    final firstMonth = int.parse(firstEntry.substring(4, 6));
+    final firstDay = int.parse(firstEntry.substring(6, 8));
+    final firstJalali = Jalali(firstYear, firstMonth, firstDay);
+    
+    final jalaliToday = Jalali.now();
+    final daysDiff = jalaliToday.toDateTime().difference(firstJalali.toDateTime()).inDays;
+    
+    // محاسبه تعداد هفته‌ها
+    _totalWeeks = (daysDiff / 7).ceil();
+    _firstEntryDate = '${firstJalali.year}/${firstJalali.month.toString().padLeft(2, '0')}/${firstJalali.day.toString().padLeft(2, '0')}';
+    
+    List<Map<String, dynamic>> stats = [];
+    
+    final dayNames = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+    
+    // فقط 6 روز قبل را نمایش بده
+    for (int i = 5; i >= 0; i--) {
+      final day = jalaliToday.addDays(-i);
+      
+      // اگر این روز قبل از اولین ورود است، نمایش نده
+      if (day.toDateTime().isBefore(firstJalali.toDateTime())) {
+        continue;
+      }
+      
+      final dayKey = '${day.year}${day.month.toString().padLeft(2, '0')}${day.day.toString().padLeft(2, '0')}';
+      final recordsJson = prefs.getString('records_$dayKey');
+      
+      String hours = '-';
+      String status = 'تعطیل';
+      
+      if (recordsJson != null) {
+        final List<dynamic> decoded = jsonDecode(recordsJson);
+        final records = decoded.map((e) => e as Map<String, dynamic>).toList();
+        
+        // محاسبه ساعات کار
+        final entries = records.where((r) => r['type'] == 'entry').toList();
+        final exits = records.where((r) => r['type'] == 'exit').toList();
+        
+        if (entries.isNotEmpty && exits.isNotEmpty) {
+          // محاسبه مجموع ساعات
+          int totalMinutes = 0;
+          for (int j = 0; j < entries.length && j < exits.length; j++) {
+            final entryTime = _parseTimeToDateTime(entries[j]['time']);
+            final exitTime = _parseTimeToDateTime(exits[j]['time']);
+            totalMinutes += exitTime.difference(entryTime).inMinutes;
+          }
+          
+          final workHours = totalMinutes ~/ 60;
+          final workMinutes = totalMinutes % 60;
+          hours = '$workHours:${workMinutes.toString().padLeft(2, '0')}';
+          
+          // تعیین وضعیت
+          if (totalMinutes >= 480) { // 8 ساعت
+            status = 'کامل';
+          } else if (totalMinutes >= 420) { // 7 ساعت
+            status = 'کسری';
+          } else {
+            status = 'کسری';
+          }
+          
+          if (totalMinutes > 480) {
+            status = 'اضافه‌کار';
+          }
+        } else if (entries.isNotEmpty) {
+          status = 'در حال کار';
+        }
+      }
+      
+      final dayOfWeek = day.weekDay; // 1=شنبه، 7=جمعه
+      final dayDate = '${day.year}/${day.month.toString().padLeft(2, '0')}/${day.day.toString().padLeft(2, '0')}';
+      
+      stats.add({
+        'day': dayNames[(dayOfWeek - 1) % 7],
+        'date': dayDate,
+        'hours': hours,
+        'status': status,
+      });
+    }
+    
+    // روز امروز
+    final todayDayOfWeek = jalaliToday.weekDay;
+    final todayDate = '${jalaliToday.year}/${jalaliToday.month.toString().padLeft(2, '0')}/${jalaliToday.day.toString().padLeft(2, '0')}';
+    
+    stats.add({
+      'day': dayNames[(todayDayOfWeek - 1) % 7],
+      'date': todayDate,
+      'hours': '-',
+      'status': 'امروز',
+    });
+    
+    setState(() {
+      _weeklyStats = stats;
+    });
+  }
+
   // متد _updateTime - به‌روزرسانی زمان و تاریخ هر ثانیه
   void _updateTime() {
     if (!mounted) return;
 
     final now = DateTime.now();
+    final jalaliNow = Jalali.fromDateTime(now);
+    
     setState(() {
       _currentTime =
       '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
       _currentDate =
-      '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+      '${jalaliNow.year}/${jalaliNow.month.toString().padLeft(2, '0')}/${jalaliNow.day.toString().padLeft(2, '0')}';
+      
+      // محاسبه مجموع زمان کاری امروز
+      _workDuration = _calculateTotalWorkDuration();
     });
 
     _timer = Timer(const Duration(seconds: 1), _updateTime); // تایمر بازگشتی
 
+  }
+
+  // محاسبه مجموع زمان کاری روز
+  String _calculateTotalWorkDuration() {
+    int totalSeconds = 0;
+    
+    // پیدا کردن همه ورودها و خروج‌ها
+    final entries = _todayRecords.where((r) => r['type'] == 'entry').toList();
+    final exits = _todayRecords.where((r) => r['type'] == 'exit').toList();
+    
+    // محاسبه زمان بین هر جفت ورود-خروج
+    for (int i = 0; i < entries.length && i < exits.length; i++) {
+      final entryTime = _parseTimeToDateTime(entries[i]['time']);
+      final exitTime = _parseTimeToDateTime(exits[i]['time']);
+      totalSeconds += exitTime.difference(entryTime).inSeconds;
+    }
+    
+    // اگر الان در حالت ورود هستیم، زمان از آخرین ورود تا الان رو اضافه کن
+    if (_isCheckedIn && _entryTime != null) {
+      final now = DateTime.now();
+      totalSeconds += now.difference(_entryTime!).inSeconds;
+    }
+    
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // تبدیل رشته زمان به DateTime
+  DateTime _parseTimeToDateTime(String time) {
+    final parts = time.split(':');
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
   }
 
   @override
@@ -107,16 +331,36 @@ class _EntryExitPageState extends State<EntryExitPage>
   }
 
   // متد _toggleCheckIn - تغییر وضعیت ورود/خروج
-  void _toggleCheckIn() {
+  void _toggleCheckIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    
     setState(() {
       _isCheckedIn = !_isCheckedIn;
-      // افزودن رکورد جدید
+      
+      if (_isCheckedIn) {
+        // ورود
+        _entryTime = DateTime.now();
+        prefs.setBool('is_checked_in', true);
+        prefs.setString('entry_time', _entryTime!.toIso8601String());
+      } else {
+        // خروج
+        _entryTime = null;
+        _workDuration = '00:00:00';
+        prefs.setBool('is_checked_in', false);
+        prefs.remove('entry_time');
+      }
+      
+      // افزودن رکورد جدید با status تایید شده
       _todayRecords.add({
         'type': _isCheckedIn ? 'entry' : 'exit',
         'time': _currentTime,
-        'status': 'در انتظار',
+        'date': _currentDate,
+        'status': 'تایید شده',
       });
     });
+
+    // ذخیره رکورد در SharedPreferences برای آمار هفتگی
+    await _saveRecordToPrefs(_isCheckedIn ? 'entry' : 'exit', _currentTime, _currentDate);
 
     // اضافه: در صورت وجود personId، ارسال رویداد ثبت ورود/خروج به بلاک
     if (_personId != null) {
@@ -177,9 +421,7 @@ class _EntryExitPageState extends State<EntryExitPage>
               print(" CommutingLoading...");
             } else if (state is CommutingReady) {
               print(" CommutingReady:");
-              // print("آخرین زمان: ${state.lastDateTime}");
               print("آخرین وضعیت: ${state.lastStatus}");
-              // print("وضعیت پیشنهادی: ${state.suggestedStatus}");
             } else if (state is CommutingSubmitted) {
               print(" CommutingSubmitted: ثبت موفق انجام شد");
             } else if (state is CommutingError) {
@@ -196,8 +438,10 @@ class _EntryExitPageState extends State<EntryExitPage>
                   _buildCheckInButton(),
                   const SizedBox(height: 20),
                   _buildTodayRecords(),
-                  const SizedBox(height: 20),
-                  _buildWeeklyStats(),
+                  if (_weeklyStats.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _buildWeeklyStats(),
+                  ],
                 ],
               ),
             );
@@ -217,10 +461,7 @@ class _EntryExitPageState extends State<EntryExitPage>
           return const CircularProgressIndicator();
         }
         final prefs = snapshot.data!;
-        // final lastDate = prefs.getString("lastDate");
-        // final lastTime = prefs.getString("lastTime");
         int? status = prefs.getInt("lastStatus");
-        // _isCheckedIn = status == 1 ? true : false ;
         print("Exit_Entry_page_status = $status");
 
 
@@ -235,13 +476,15 @@ class _EntryExitPageState extends State<EntryExitPage>
               lastTime = state.lastTime;
               lastStatus = state.lastStatus;
             }
-            //todo
+            
             if(lastTime == null || lastDate == null){
               final now = DateTime.now();
+              final jalaliNow = Jalali.fromDateTime(now);
               _currentTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-              _currentDate = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-                lastDate = _currentDate;
-                lastTime = _currentTime;
+              _currentDate = '${jalaliNow.year}/${jalaliNow.month.toString().padLeft(2, '0')}/${jalaliNow.day.toString().padLeft(2, '0')}';
+            }else{
+              _currentDate = lastDate;
+              _currentTime = lastTime;
             }
 
             return Container(
@@ -249,46 +492,70 @@ class _EntryExitPageState extends State<EntryExitPage>
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    AppColors.primaryPurple,
-                    AppColors.primaryPurple.withOpacity(0.7),
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
+                  colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.7)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primaryPurple.withOpacity(0.3),
+                    color: AppColors.primaryGreen.withOpacity(0.3),
                     blurRadius: 15,
-                    offset: const Offset(0, 8),
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
               child: Column(
                 children: [
                   Text(
-                    lastTime ?? '',
+                    _currentDate,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontFamily: 'Vazir',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _currentTime,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 56,
+                      fontSize: 48,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Vazir',
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // اگر بخوای تاریخ جداگانه نشون بدی می‌تونی همین lastDateTime رو فرمت کنی
-                  Text(
-                    lastDate ?? '',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 20,
-                      fontFamily: 'Vazir',
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.timer,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'زمان کاری امروز: $_workDuration',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Vazir',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
@@ -299,14 +566,13 @@ class _EntryExitPageState extends State<EntryExitPage>
                         Icon(
                           _isCheckedIn ? Icons.login : Icons.logout,
                           color: Colors.white,
-                          size: 20,
+                          size: 16,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _isCheckedIn ? 'وضعیت: حاضر' : 'وضعیت: خارج',
+                          _isCheckedIn ? 'حضور دارید' : 'در حال غیبت',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
                             fontFamily: 'Vazir',
                           ),
                         ),
@@ -322,7 +588,6 @@ class _EntryExitPageState extends State<EntryExitPage>
     );
   }
 
-//...............................................................................
   Widget _buildCheckInButton() {
     return ScaleTransition(
       scale: _pulseAnimation,
@@ -419,7 +684,21 @@ class _EntryExitPageState extends State<EntryExitPage>
             ],
           ),
           const SizedBox(height: 16),
-          ..._todayRecords.map((record) => _buildRecordItem(record)),
+          if (_todayRecords.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'هنوز رکوردی ثبت نشده است',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontFamily: 'Vazir',
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._todayRecords.map((record) => _buildRecordItem(record)),
         ],
       ),
     );
@@ -533,12 +812,37 @@ class _EntryExitPageState extends State<EntryExitPage>
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'آمار هفتگی',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Vazir',
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'آمار هفتگی',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Vazir',
+                      ),
+                    ),
+                    if (_totalWeeks > 0)
+                      Text(
+                        'تعداد هفته‌ها: $_totalWeeks هفته',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontFamily: 'Vazir',
+                        ),
+                      ),
+                    if (_firstEntryDate != null)
+                      Text(
+                        'از تاریخ: $_firstEntryDate',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                          fontFamily: 'Vazir',
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -573,58 +877,77 @@ class _EntryExitPageState extends State<EntryExitPage>
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
         children: [
-          SizedBox(
-            width: 70,
-            child: Text(
-              stat['day'],
-              style: const TextStyle(
-                fontFamily: 'Vazir',
-                fontWeight: FontWeight.w500,
+          Row(
+            children: [
+              SizedBox(
+                width: 70,
+                child: Text(
+                  stat['day'],
+                  style: const TextStyle(
+                    fontFamily: 'Vazir',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: LinearProgressIndicator(
-              value:
-              stat['hours'] == '-'
-                  ? 0
-                  : double.tryParse(stat['hours'].split(':')[0]) ?? 0 / 10,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 50,
-            child: Text(
-              stat['hours'],
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Vazir',
-                fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  stat['date'] ?? '',
+                  style: TextStyle(
+                    fontFamily: 'Vazir',
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ),
-            ),
-          ),
-          Container(
-            width: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              stat['status'],
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 10,
-                fontFamily: 'Vazir',
+              Container(
+                width: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  stat['status'],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontFamily: 'Vazir',
+                  ),
+                ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: LinearProgressIndicator(
+                  value:
+                  stat['hours'] == '-'
+                      ? 0
+                      : (double.tryParse(stat['hours'].split(':')[0]) ?? 0) / 10,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 50,
+                child: Text(
+                  stat['hours'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Vazir',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

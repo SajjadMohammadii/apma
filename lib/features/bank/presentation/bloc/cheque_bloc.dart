@@ -1,91 +1,59 @@
 
+import 'package:apma_app/features/bank/data/models/ChequeResponse.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../commuting/domain/repositories/commuting_repository.dart';
-import '../../../commuting/presentation/bloc/commuting_event.dart';
-import '../../../commuting/presentation/bloc/commuting_state.dart';
-import '../../domain/repositories/bank_repository.dart';
-import 'bank_event.dart';
-import 'bank_state.dart';
+import '../../data/models/ChequeRequest.dart';
+import '../../domain/repositories/cheque_repository.dart';
+import 'cheque_event.dart';
+import 'cheque_state.dart';
 
-class BankBloc extends Bloc<BankEvent, BankState> {
-  final BankRepository repository;
+class ChequeBloc extends Bloc<ChequeEvent, ChequeState> {
+  final ChequeRepository repository;
 
-  BankBloc({
+  ChequeBloc({
     required this.repository,
   }) : super(ChequeInitial()) {
-    on<LoadDriverRelatedChequesEvent>(_onGetServerDateTime);
+    on<LoadCheques>(_onGetCheques);
   }
 
 //.......................................................................................
-  Future<void> _onGetServerDateTime(LoadDriverRelatedChequesEvent event,
-      Emitter<BankState> emit,) async {
-    emit(ChequeLoading());
+  Future<void> _onGetCheques(
+      LoadCheques event,
+      Emitter<ChequeState> emit,) async {
+       emit(ChequeLoading());
 
-    try {
-      // String? formattedDate;
-      // String? serverTime;
-      // String? serverDate;
-
-      final last = await repository.loadDriverRelatedCheques();
-
-      // formattedDate = last?.currentServerTime;
-      //
-      //
-      // final raw = formattedDate!; // مثل 20251214174319
-      // final parsed = DateTime(
-      //   int.parse(raw.substring(0, 4)),   // سال
-      //   int.parse(raw.substring(4, 6)),   // ماه
-      //   int.parse(raw.substring(6, 8)),   // روز
-      //   int.parse(raw.substring(8, 10)),  // ساعت
-      //   int.parse(raw.substring(10, 12)), // دقیقه
-      //   int.parse(raw.substring(12, 14)), // ثانیه
+    // request initialist
+     try {
+      // final request = ChequeRequest(
+      //   personId: "123",
+      //   chequeNumber: "456",
+      //   status: 1,
       // );
-      // final jalali = Jalali.fromDateTime(parsed);
-      // serverDate = "${jalali.year}/${jalali.month.toString().padLeft(2, '0')}/${jalali.day.toString().padLeft(2, '0')}";
-      // serverTime = "${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}";
-      //
-      // print("currentServerTime : $serverDate + $serverTime");
-      //
-      // //todo
-      // // _tryInsertCommuting();
 
-      emit(LoadDriverRelatedChequesReady(
-        // serverRaw: raw,
-        // serverTime: serverTime,
-        // serverDate: serverDate,
-        // تستی
-        serverRaw: "raw",
-        serverTime: "serverTime",
-        serverDate: "serverDate",
-      ));
+      final LoadDriverRelatedCheques? last =
+      await repository.loadDriverRelatedCheques(event.request);
 
-      // _serverRaw = raw;
+      // emit(ChequeLoaded(last));
+      emit(ChequeLoaded(response: last));
 
     } catch (e) {
-      emit(BankError(e.toString()));
+      emit(ChequeError(e.toString()));
     }
   }
-//.......................................................................................
-
-  // class ChequeBloc extends Bloc<ChequeEvent, ChequeState> {
-  // final ChequeRepository repository;
-  //
-  // ChequeBloc(this.repository) : super(ChequeInitial()) {
-  // on<LoadCheques>((event, emit) async {
-  // emit(ChequeLoading());
-  // try {
-  // final response = await repository.loadDriverRelatedCheques(event.request);
-  // if (response.error == 0) {
-  // emit(ChequeLoaded(response));
-  // } else {
-  // emit(ChequeError("خطا در دریافت اطلاعات"));
-  // }
-  // } catch (e) {
-  // emit(ChequeError(e.toString()));
-  // }
-  // });
-  // }
-  // }
-
 
 }
+
+// Future<void> _onGetCheques(
+//     LoadCheques event,
+//     Emitter<ChequeState> emit,
+//     ) async {
+//   emit(ChequeLoading());
+//
+//   try {
+//     final LoadDriverRelatedCheques? last =
+//     await repository.loadDriverRelatedCheques(event.request);
+//
+//     emit(ChequeLoaded(response: last));
+//   } catch (e) {
+//     emit(ChequeError(e.toString()));
+//   }
+// }

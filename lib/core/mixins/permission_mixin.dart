@@ -29,44 +29,62 @@ mixin PermissionMixin<T extends StatefulWidget> on State<T> {
   Future<void> _checkAndRequestPermissions() async {
     // فقط در موبایل چک دسترسی انجام شود
     if (!_isMobile) {
-      developer.log('🖥️ پلتفرم دسکتاپ/وب - نیازی به چک دسترسی نیست');
+      developer.log(' پلتفرم دسکتاپ/وب - نیازی به چک دسترسی نیست');
       setState(
-        () => _permissionsGranted = true,
+            () => _permissionsGranted = true,
       ); // در دسکتاپ دسترسی‌ها همیشه OK
       return;
     }
 
-    developer.log('🔍 بررسی دسترسی‌ها شروع شد');
+    developer.log(' بررسی دسترسی‌ها شروع شد');
 
-    final hasPermissions =
-        await PermissionService.checkAllPermissions(); // بررسی دسترسی‌ها
+    //todo
+    final int sdkInt = int.tryParse(Platform.version.split(' ').first) ?? 0;
+    if (sdkInt >= 33) {
+      final hasPermissions =
+      await PermissionService.checkAllPermissionsUp33(); // بررسی دسترسی‌ها
 
-    if (!hasPermissions) {
-      // اگر دسترسی‌ها کامل نیست
-      developer.log(' دسترسی‌های ناقص - نمایش dialog');
-      _showPermissionDialog(); // نمایش دیالوگ درخواست دسترسی
-    } else {
-      setState(() => _permissionsGranted = true); // تنظیم وضعیت به true
-      developer.log(' تمام دسترسی‌ها موجود است');
-     // Navigator.pop(context);
+      if (!hasPermissions) {
+        // اگر دسترسی‌ها کامل نیست
+        developer.log(' دسترسی‌های ناقص - نمایش dialog');
+        _showPermissionDialog(); // نمایش دیالوگ درخواست دسترسی
+      } else {
+        setState(() => _permissionsGranted = true); // تنظیم وضعیت به true
+        developer.log(' تمام دسترسی‌ها موجود است');
+        // Navigator.pop(context);
+      }
+    }else{
+      final hasPermissions =
+      await PermissionService.checkAllPermissionsUnder33(); // بررسی دسترسی‌ها
+
+      if (!hasPermissions) {
+        // اگر دسترسی‌ها کامل نیست
+        developer.log(' دسترسی‌های ناقص - نمایش dialog');
+        _showPermissionDialog(); // نمایش دیالوگ درخواست دسترسی
+      } else {
+        setState(() => _permissionsGranted = true); // تنظیم وضعیت به true
+        developer.log(' تمام دسترسی‌ها موجود است');
+        // Navigator.pop(context);
+      }
     }
+
   }
 
   // متد _showPermissionDialog - نمایش دیالوگ درخواست دسترسی
   void _showPermissionDialog() {
-    // showDialog(
-    //   context: context,
-    //   barrierDismissible: false, // کاربر نتواند دیالوگ را با کلیک بیرون ببندد
-    //   builder:
-    //       (context) => PermissionDialog(
-    //         onPermissionsGranted: () {
-    //           // callback هنگام اعطای دسترسی‌ها
-    //           setState(() => _permissionsGranted = true);
-    //           developer.log(' دسترسی‌ها اعطا شدند');
-    //           // Navigator.pop(context);
-    //         },
-    //       ),
-    // );
+    showDialog(
+      context: context,
+      barrierDismissible: false, // کاربر نتواند دیالوگ را با کلیک بیرون ببندد
+      builder:
+          (context) => PermissionDialog(
+        onPermissionsGranted: () {
+          // callback هنگام اعطای دسترسی‌ها
+          setState(() => _permissionsGranted = true);
+          developer.log(' دسترسی‌ها اعطا شدند');
+          // Navigator.pop(context);
+        },
+      ),
+    );
   }
 
 

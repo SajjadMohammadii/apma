@@ -100,6 +100,7 @@ class _DeliveryNearbyPageState extends State<DeliveryNearbyPage> {
     return Directionality(
       textDirection: TextDirection.rtl, // راست به چپ
       child: Scaffold(
+        resizeToAvoidBottomInset: true,
         backgroundColor: AppColors.backgroundColor,
         appBar: AppBar(
           title: const Text(
@@ -119,62 +120,63 @@ class _DeliveryNearbyPageState extends State<DeliveryNearbyPage> {
             onPressed: () => Navigator.pop(context), // برگشت
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            children: [
-              // هدر نمایش مکان
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryPurple,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${widget.location} - ${widget.subLocation}', // نمایش مکان
-                        style: const TextStyle(
-                          fontFamily: 'Vazir',
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    // تعداد مشتریان
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              children: [
+                // هدر نمایش مکان
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
+                        size: 18,
                       ),
-                      child: Text(
-                        '${_pendingDeliveries.length} مشتری',
-                        style: TextStyle(
-                          fontFamily: 'Vazir',
-                          color: AppColors.primaryPurple,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${widget.location} - ${widget.subLocation}', // نمایش مکان
+                          style: const TextStyle(
+                            fontFamily: 'Vazir',
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      // تعداد مشتریان
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${_pendingDeliveries.length} مشتری',
+                          style: TextStyle(
+                            fontFamily: 'Vazir',
+                            color: AppColors.primaryPurple,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              // جدول مشتریان
-              Expanded(
-                child: Container(
+                const SizedBox(height: 8),
+                // جدول مشتریان
+                Container(
+                  height: MediaQuery.of(context).size.height * 0.6,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
@@ -461,29 +463,29 @@ class _DeliveryNearbyPageState extends State<DeliveryNearbyPage> {
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              // دکمه امضا
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _goToSignature,
-                  icon: const Icon(Icons.draw, size: 18),
-                  label: const Text(
-                    'امضا',
-                    style: TextStyle(fontFamily: 'Vazir', fontSize: 12),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 8),
+                // دکمه امضا
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _goToSignature,
+                    icon: const Icon(Icons.draw, size: 18),
+                    label: const Text(
+                      'امضا',
+                      style: TextStyle(fontFamily: 'Vazir', fontSize: 12),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

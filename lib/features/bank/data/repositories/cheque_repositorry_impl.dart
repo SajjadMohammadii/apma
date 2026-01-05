@@ -1,33 +1,33 @@
-
-import 'package:apma_app/features/bank/domain/repositories/bank_repository.dart';
+import 'dart:convert';
+import 'package:apma_app/features/bank/domain/repositories/cheque_repository.dart';
 import '../../../../core/errors/exceptions.dart';
-import '../../domain/repositories/bank_repository.dart' as remote;
+import '../../domain/repositories/cheque_repository.dart' as domain;
+import '../datasource/cheque_remote_datasource.dart';
+import '../models/ChequeRequest.dart';
 
-@override
-Future<LoadDriverRelatedCheques?> loadDriverRelatedCheques() async {
-  try {
-    final dateTime = await remote.loadDriverRelatedCheques();
-    if (dateTime == null) return null;
-    // print("Repository → Raw map=$map");
-    // LastDateTime
-    final lastDateRaw = dateTime;
-    final serverDateTime =
-    (lastDateRaw == null || lastDateRaw == 'NULL')
-        ? null
-        : lastDateRaw.toString();
-    // print("Repository → LastDateTime=$lastDateTime, Status=$status");
-    return LoadDriverRelatedCheques(
-      currentServerTime: serverDateTime,
-    );
-  } on ServerException catch (e) {
-    print("Repository → ServerException: ${e.message}");
-    return null;
-  } on NetworkException catch (e) {
-    print("Repository → NetworkException: ${e.message}");
-    return null;
-  } catch (e) {
-    print("Repository → Unexpected error: $e");
-    return null;
+class ChequeRepositoryImpl implements ChequeRepository {
+  final ChequeRemoteDataSource remote;
+
+  ChequeRepositoryImpl({required this.remote});
+
+  @override
+  Future<LoadDriverRelatedCheques?> loadDriverRelatedCheques(
+      ChequeRequest request) async {
+    try {
+      final String responseString =
+      await remote.loadDriverRelatedChequesList(request.toJsonString());
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(responseString);
+
+      return LoadDriverRelatedCheques.fromJson(jsonResponse);
+    } on ServerException catch (e) {
+      // باید پیام بدهید
+      throw ServerException("Server error: ${e.toString()}");
+    } catch (e) {
+      throw Exception("Unexpected error: $e");
+    }
   }
+
+
+
 }
-//...................................................................................

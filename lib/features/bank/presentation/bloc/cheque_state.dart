@@ -1,49 +1,35 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/repositories/cheque_repository.dart';
 
-abstract class BankState extends Equatable {
+abstract class ChequeState extends Equatable {
   @override
   List<Object?> get props => [];
 }
 //..........................................................................
-class ChequeInitial extends BankState {}
+class ChequeInitial extends ChequeState {}
+
 //..........................................................................
-class ChequeLoading extends BankState {}
+class ChequeLoading extends ChequeState {}
 
-class LoadChequeSuccess extends BankState {}
 //..........................................................................
 
-class LoadDriverRelatedChequesReady extends BankState {
-  final String serverRaw;     // 20251214174319
-  final String serverTime;
-  final String serverDate;
-
-  LoadDriverRelatedChequesReady({
-    required this.serverRaw,
-    required this.serverTime,
-    required this.serverDate,
-  });
+// class ChequeLoaded extends ChequeState {
+//   final ChequeResponse response;
+//   //   final String responseString;
+//   ChequeLoaded(this.response);
+//   // @override
+//   // List<Object?> get props => [response];
+// }
+class ChequeLoaded extends ChequeState {
+  final LoadDriverRelatedCheques? response;
+  ChequeLoaded({required this.response});
 }
 
-// class BankReady extends BankState {
-//   final String? lastDate;
-//   final int? lastStatus;
-//   final String? lastTime;
-//   final String? rawLastDateTime;
-//
-//   BankReady({
-//     required this.lastDate,
-//     required this.lastStatus,
-//     required this.lastTime,
-//     required this.rawLastDateTime,
-//   });
-//
-//   @override
-//   List<Object?> get props => [/*lastDate, lastStatus, lastTime*/];
-// }
+//..........................................................................
 
-class BankError extends BankState {
+class ChequeError extends ChequeState {
   final String message;
-  BankError(this.message);
+  ChequeError(this.message);
   @override
   List<Object?> get props => [message];
 }
