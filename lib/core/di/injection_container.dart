@@ -3,11 +3,11 @@
 
 import 'package:apma_app/core/network/soap_client.dart'; // کلاینت SOAP
 import 'package:apma_app/core/services/local_storage_service.dart'; // سرویس ذخیره‌سازی محلی
-import 'package:apma_app/features/auth/data/datasources/auth_remote_datasource.dart'; // منبع داده راه دور
-import 'package:apma_app/features/auth/data/repositories/auth_repository_impl.dart'; // پیاده‌سازی ریپازیتوری
-import 'package:apma_app/features/auth/domain/repositories/auth_repository.dart'; // رابط ریپازیتوری
-import 'package:apma_app/features/auth/domain/usecases/login_usecase.dart'; // یوزکیس ورود
-import 'package:apma_app/features/auth/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
+import 'package:apma_app/features/authentication/data/datasources/auth_remote_datasource.dart'; // منبع داده راه دور
+import 'package:apma_app/features/authentication/data/repositories/auth_repository_impl.dart'; // پیاده‌سازی ریپازیتوری
+import 'package:apma_app/features/authentication/domain/repositories/auth_repository.dart'; // رابط ریپازیتوری
+import 'package:apma_app/features/authentication/domain/usecases/login_usecase.dart'; // یوزکیس ورود
+import 'package:apma_app/features/authentication/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
 import 'package:get_it/get_it.dart'; // کتابخانه GetIt برای تزریق وابستگی
 import 'package:shared_preferences/shared_preferences.dart'; // ذخیره‌سازی تنظیمات
 import 'package:http/http.dart' as http;

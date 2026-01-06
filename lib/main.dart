@@ -30,14 +30,14 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'core/constants/app_string.dart';
 import 'core/themes/app_theme.dart';
-import 'screens/splash/splash_screen.dart';
+import 'features/splash/splash_screen.dart';
 import 'services/foreground_service.dart';
 
 // DI - تزریق وابستگی
 import 'core/di/injection_container.dart' as di;
 
 // Bloc ها
-import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/commuting/presentation/bloc/commuting_bloc.dart';
 
 /// تابع main - نقطه شروع برنامه
