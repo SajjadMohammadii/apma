@@ -1,5 +1,5 @@
 
-import 'package:apma_app/features/bank/data/models/ChequeResponse.dart';
+import 'package:apma_app/features/transaction/bankcheck/data/models/ChequeResponse.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/ChequeRequest.dart';
 import '../../domain/repositories/cheque_repository.dart';

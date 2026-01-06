@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:apma_app/features/bank/domain/repositories/cheque_repository.dart';
-import '../../../../core/errors/exceptions.dart';
+import 'package:apma_app/features/transaction/bankcheck/domain/repositories/cheque_repository.dart';
+import '../../../../../core/errors/exceptions.dart';
 import '../../domain/repositories/cheque_repository.dart' as domain;
 import '../datasource/cheque_remote_datasource.dart';
 import '../models/ChequeRequest.dart';

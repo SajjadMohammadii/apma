@@ -7,18 +7,15 @@ import 'package:apma_app/features/authentication/presentation/bloc/auth_bloc.dar
 import 'package:apma_app/features/authentication/presentation/bloc/auth_event.dart'; // رویدادهای بلاک
 import 'package:apma_app/features/authentication/presentation/bloc/auth_state.dart'; // وضعیت‌های بلاک
 import 'package:apma_app/features/%20notifications/notification_page.dart'; // صفحه اعلان‌ها
-import 'package:apma_app/features/auth/login_page.dart'; // صفحه ورود
-import 'package:apma_app/features/transaction/Entry&Exit/Entry%D9%80Exit%D9%80page.dart'; // صفحه ورود و خروج
+import 'package:apma_app/features/authentication/presentation/pages/login_page.dart'; // صفحه ورود
+import 'package:apma_app/features/transaction/Entry&Exit/presentation/pages/entry_exit_page.dart';// صفحه ورود و خروج
 import 'package:apma_app/features/transaction/delivery_parcels/delivery_parcels.dart'; // صفحه تحویل مرسولات
-
 import 'package:apma_app/features/transaction/transaction.dart'; // صفحه عملیات
 import 'package:apma_app/features/messages/messages_page.dart'; // صفحه پیام‌ها
-import 'package:apma_app/features/transaction/bankcheck/bank%D9%80check.dart'; // صفحه چک بانکی
-import 'package:apma_app/features/transaction/price_management/price_management_page.dart'; // صفحه مدیریت بها
-
+import 'package:apma_app/features/transaction/bankcheck/presentation/pages/bank%D9%80check.dart'; // صفحه چک بانکی
+import 'package:apma_app/features/transaction/price_management/pages/price_management_page.dart'; // صفحه مدیریت بها
 import 'package:flutter/material.dart'; // ویجت‌های متریال
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../production/presentation/production_control.dart';
 
 // کلاس HomePage - صفحه اصلی پس از ورود

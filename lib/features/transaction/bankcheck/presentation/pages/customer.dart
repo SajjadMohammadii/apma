@@ -1,49 +1,58 @@
-// صفحه چک بانک - ثبت و مدیریت چک‌های بانکی
+// صفحه چک مشتری - ثبت و مدیریت چک‌های مشتری
 // مرتبط با: bank_check.dart, camera_preview_screen.dart
 
 import 'dart:io'; // کتابخانه کار با فایل
 import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
-import 'package:apma_app/features/transaction/bankcheck/camera_preview_screen.dart'; // صفحه دوربین
+import 'package:apma_app/features/transaction/bankcheck/presentation/widget/camera_preview_screen.dart'; // صفحه دوربین
 import 'package:apma_app/shared/widgets/persian_date_picker/persian_date_picker_dialog.dart'; // انتخابگر تاریخ
 import 'package:flutter/foundation.dart'; // ابزارهای پایه
 import 'package:flutter/material.dart'; // ویجت‌های متریال
 import 'package:camera/camera.dart'; // کتابخانه دوربین
+import 'package:http/http.dart';
 import 'package:image_picker/image_picker.dart'; // انتخاب تصویر
 import 'package:permission_handler/permission_handler.dart'; // مدیریت دسترسی‌ها
 import 'package:shamsi_date/shamsi_date.dart'; // تاریخ شمسی
-import 'package:flutter/services.dart'; // سرویس‌های سیستم
+import 'package:flutter/services.dart';
 
-// کلاس BankPage - صفحه چک بانک
-class BankPage extends StatefulWidget {
-  const BankPage({super.key});
+import '../../data/models/ChequeRequest.dart';
+import '../bloc/cheque_bloc.dart'; // سرویس‌های سیستم
+import 'dart:async';
+import 'dart:ffi';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../bloc/cheque_event.dart';
+import '../bloc/cheque_state.dart';
+
+// کلاس CustomerPage - صفحه چک مشتری
+class CustomerPage extends StatefulWidget {
+  const CustomerPage({super.key});
 
   @override
-  State<BankPage> createState() => _BankPageState();
+  State<CustomerPage> createState() => _CustomerPageState();
 }
 
-// کلاس _BankPageState - state صفحه چک بانک
-class _BankPageState extends State<BankPage> {
-  String bankStatus = "واریز"; // وضعیت بانکی انتخاب شده
-  // لیست وضعیت‌های بانکی
-  final List<String> bankStatuses = [
-    'واریز',
-    'خواباندن',
-    'برگشت',
-    'ابطال',
-    'مرجوع',
-  ];
-
+// کلاس _CustomerPageState - state صفحه چک مشتری
+class _CustomerPageState extends State<CustomerPage> {
+  String checkActionType = "دریافت چک"; // نوع عملیات چک
   String? imagePath; // مسیر تصویر چک
   List<CameraDescription>? _cameras; // لیست دوربین‌ها
   final ImagePicker _picker = ImagePicker(); // انتخابگر تصویر
 
   // کنترلرهای فیلدها
-  final TextEditingController searchController =
-      TextEditingController(); // جستجو
-  final TextEditingController accountController =
-      TextEditingController(); // حساب
-  final TextEditingController bankDateController =
-      TextEditingController(); // تاریخ
+  final TextEditingController dateController = TextEditingController(); // تاریخ
+  final TextEditingController numberController =
+      TextEditingController(); // شماره چک
+  final TextEditingController sayadiController =
+      TextEditingController(); // صیادی
+  final TextEditingController priceController = TextEditingController(); // مبلغ
+  final TextEditingController companyController =
+      TextEditingController(); // شرکت
+
+  // فرمت‌کننده جداکننده هزارگان
+  final ThousandsSeparatorInputFormatter _amountFormatter =
+      ThousandsSeparatorInputFormatter();
 
   // بررسی پلتفرم موبایل
   bool get _isMobile {
@@ -67,7 +76,7 @@ class _BankPageState extends State<BankPage> {
   // متد _setTodayDate - تنظیم تاریخ امروز شمسی
   void _setTodayDate() {
     final now = Jalali.now();
-    bankDateController.text =
+    dateController.text =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
   }
 
@@ -75,10 +84,10 @@ class _BankPageState extends State<BankPage> {
   Future<void> _openDatePicker() async {
     final selectedDate = await PersianDatePickerDialog.show(
       context,
-      bankDateController.text,
+      dateController.text,
     );
     if (selectedDate != null) {
-      bankDateController.text = selectedDate;
+      dateController.text = selectedDate;
     }
   }
 
@@ -116,6 +125,7 @@ class _BankPageState extends State<BankPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // دستگیره کشیدن
                   Container(
                     width: 40,
                     height: 4,
@@ -126,7 +136,7 @@ class _BankPageState extends State<BankPage> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'انتخاب فایل پیوست',
+                    'انتخاب فایل پیوست', // عنوان
                     style: TextStyle(
                       fontFamily: 'Vazir',
                       fontWeight: FontWeight.bold,
@@ -134,6 +144,7 @@ class _BankPageState extends State<BankPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // گزینه‌های دوربین و گالری
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -168,10 +179,11 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _buildPickerOption - ساخت گزینه انتخابگر
   Widget _buildPickerOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
+    required IconData icon, // آیکون
+    required String label, // برچسب
+    required VoidCallback onTap, // callback کلیک
   }) {
     return InkWell(
       onTap: onTap,
@@ -199,13 +211,15 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _openCamera - باز کردن دوربین
   Future<void> _openCamera() async {
-    final status = await Permission.camera.request();
+    final status = await Permission.camera.request(); // درخواست دسترسی
     if (!status.isGranted) return;
 
-    _cameras = await availableCameras();
+    _cameras = await availableCameras(); // دریافت دوربین‌ها
     if (_cameras == null || _cameras!.isEmpty) return;
 
+    // ناوبری به صفحه دوربین
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -218,14 +232,87 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _saveData - ذخیره اطلاعات
   void _saveData() {
-    print("اطلاعات بانک ذخیره شد");
+
+    final request = ChequeRequest(
+      personId: companyController.text,   // شناسه شخص/راننده
+      chequeNumber: numberController.text, // شماره چک
+      status: 1, // وضعیت چک (مثلاً 1: واریز شده)
+    );
+
+    context.read<ChequeBloc>().add(LoadCheques(request));
+
+
+    print("اطلاعات مشتری ذخیره شد");
+
   }
+
+  // @override
+  // // متد build - ساخت رابط کاربری صفحه
+  // Widget build(BuildContext context) {
+  //   return Column(
+  //     children: [
+  //       Expanded(
+  //         child: SingleChildScrollView(
+  //           padding: const EdgeInsets.all(16),
+  //           child: Column(
+  //             children: [
+  //               const SizedBox(height: 20),
+  //               // دکمه آپلود چک
+  //               ElevatedButton(
+  //                 onPressed: _openAttachment,
+  //                 style: ElevatedButton.styleFrom(
+  //                   backgroundColor: AppColors.primaryGreen,
+  //                   foregroundColor: Colors.white,
+  //                   padding: const EdgeInsets.symmetric(
+  //                     horizontal: 24,
+  //                     vertical: 12,
+  //                   ),
+  //                   shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                   ),
+  //                 ),
+  //                 child: Row(
+  //                   mainAxisSize: MainAxisSize.min,
+  //                   children: const [
+  //                     Text("آپلود چک", style: TextStyle(fontFamily: 'Vazir')),
+  //                     SizedBox(width: 12),
+  //                     Icon(Icons.upload_file),
+  //                   ],
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 20),
+  //               if (imagePath != null)
+  //                 _uploadedFileBox(), // نمایش فایل آپلود شده
+  //               // فیلدهای فرم
+  //               _buildField("شرکت", companyController),
+  //               _buildDropdownField("نوع چک", checkActionType, [
+  //                 "دریافت چک",
+  //                 "ارسال چک",
+  //               ]),
+  //               _buildField("تاریخ", dateController, isDate: true),
+  //               _buildField(
+  //                 "شماره چک / شماره سریال",
+  //                 numberController,
+  //                 isNumeric: true,
+  //               ),
+  //               _buildField("صیادی", sayadiController, isNumeric: true),
+  //               _buildField("مبلغ", priceController, isAmount: true),
+  //
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //       _saveButton(), // دکمه ذخیره
+  //     ],
+  //   );
+  // }
+
+  // متد _buildDropdownField - ساخت فیلد دراپ‌داون
 
   @override
   Widget build(BuildContext context) {
-    bool showAccountField = bankStatus == "واریز" || bankStatus == "خواباندن";
-
     return Column(
       children: [
         Expanded(
@@ -234,11 +321,7 @@ class _BankPageState extends State<BankPage> {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                _buildSearchBox(),
-                _buildDropdownField("وضعیت", bankStatus, bankStatuses),
-                if (showAccountField) _buildField("به حساب", accountController),
-                _buildField("تاریخ", bankDateController, isDate: true),
-                const SizedBox(height: 10),
+                // دکمه آپلود چک
                 ElevatedButton(
                   onPressed: _openAttachment,
                   style: ElevatedButton.styleFrom(
@@ -255,76 +338,86 @@ class _BankPageState extends State<BankPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Text("پیوست", style: TextStyle(fontFamily: 'Vazir')),
+                      Text("آپلود چک", style: TextStyle(fontFamily: 'Vazir')),
                       SizedBox(width: 12),
-                      Icon(Icons.attach_file),
+                      Icon(Icons.upload_file),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
                 if (imagePath != null) _uploadedFileBox(),
+
+                // فیلدهای فرم
+                _buildField("شرکت", companyController),
+                _buildDropdownField("نوع چک", checkActionType, [
+                  "دریافت چک",
+                  "ارسال چک",
+                ]),
+                _buildField("تاریخ", dateController, isDate: true),
+                _buildField("شماره چک / شماره سریال", numberController,
+                    isNumeric: true),
+                _buildField("صیادی", sayadiController, isNumeric: true),
+                _buildField("مبلغ", priceController, isAmount: true),
+
+                const SizedBox(height: 20),
+
+                // BlocBuilder برای نمایش نتیجه
+                BlocBuilder<ChequeBloc, ChequeState>(
+                  builder: (context, state) {
+                    if (state is ChequeLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: CircularProgressIndicator(),
+                      );
+                    } else if (state is ChequeLoaded) {
+                      final items = state.response?.items; // List<Map<String, dynamic>>
+                      if (items!.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text("هیچ رکوردی یافت نشد"),
+                        );
+                      }
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: items?.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return Card(
+                            child: ListTile(
+                              title: Text("شماره چک: ${item['ChequeNumber'] ?? '-'}"),
+                              subtitle: Text("وضعیت: ${item['Status'] ?? '-'}"),
+                              trailing: Text("PersonID: ${item['PersonID'] ?? '-'}"),
+                            ),
+                          );
+                        },
+                      );
+                    } else if (state is ChequeError) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text("خطا: ${state.message}"),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
               ],
             ),
           ),
         ),
-        _saveButton(),
+        _saveButton(), // دکمه ذخیره
       ],
     );
   }
 
-  Widget _buildSearchBox() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "جستجوی چک",
-          style: TextStyle(
-            fontFamily: "Vazir",
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textWhite,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: TextField(
-            controller: searchController,
-            textAlign: TextAlign.right,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
-              fontFamily: "Vazir",
-              fontSize: 15,
-              color: Colors.black87,
-            ),
-            decoration: const InputDecoration(
-              hintText: "شماره سریال / شماره چک",
-              hintStyle: TextStyle(fontFamily: "Vazir", color: Colors.grey),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 14,
-              ),
-              border: InputBorder.none,
-              suffixIcon: Icon(Icons.search, color: AppColors.primaryPurple),
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-      ],
-    );
-  }
 
   Widget _buildDropdownField(String label, String value, List<String> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          label, // برچسب
           style: const TextStyle(
             fontFamily: "Vazir",
             fontSize: 13,
@@ -359,7 +452,7 @@ class _BankPageState extends State<BankPage> {
                       child: Text(item, textAlign: TextAlign.right),
                     );
                   }).toList(),
-              onChanged: (val) => setState(() => bankStatus = val!),
+              onChanged: (val) => setState(() => checkActionType = val!),
             ),
           ),
         ),
@@ -368,10 +461,13 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _buildField - ساخت فیلد متنی
   Widget _buildField(
-    String label,
-    TextEditingController controller, {
-    bool isDate = false,
+    String label, // برچسب
+    TextEditingController controller, { // کنترلر
+    bool isNumeric = false, // آیا عددی
+    bool isDate = false, // آیا تاریخ
+    bool isAmount = false, // آیا مبلغ
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +491,7 @@ class _BankPageState extends State<BankPage> {
           child:
               isDate
                   ? InkWell(
-                    onTap: _openDatePicker,
+                    onTap: _openDatePicker, // باز کردن انتخابگر تاریخ
                     child: IgnorePointer(
                       child: TextField(
                         controller: controller,
@@ -417,6 +513,18 @@ class _BankPageState extends State<BankPage> {
                   : TextField(
                     controller: controller,
                     textAlign: TextAlign.right,
+                    keyboardType:
+                        isNumeric || isAmount
+                            ? TextInputType.number
+                            : TextInputType.text,
+                    inputFormatters:
+                        isAmount
+                            ? [_amountFormatter] // فرمت مبلغ
+                            : isNumeric
+                            ? [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ] // فقط عدد
+                            : [],
                     style: const TextStyle(fontFamily: "Vazir", fontSize: 15),
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.symmetric(
@@ -432,12 +540,13 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _uploadedFileBox - نمایش باکس فایل آپلود شده
   Widget _uploadedFileBox() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "فایل چک",
+          "فایل چک", // عنوان
           style: TextStyle(
             fontFamily: "Vazir",
             fontSize: 13,
@@ -459,7 +568,7 @@ class _BankPageState extends State<BankPage> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  "فایل چک آپلود شد",
+                  "فایل چک آپلود شد", // پیام موفقیت
                   style: TextStyle(fontFamily: "Vazir", fontSize: 15),
                 ),
               ),
@@ -471,13 +580,14 @@ class _BankPageState extends State<BankPage> {
     );
   }
 
+  // متد _saveButton - ساخت دکمه ذخیره
   Widget _saveButton() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _saveData,
+          onPressed: _saveData, // ذخیره
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primaryPurple,
             foregroundColor: Colors.white,
@@ -496,6 +606,32 @@ class _BankPageState extends State<BankPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// کلاس ThousandsSeparatorInputFormatter - فرمت‌کننده جداکننده هزارگان
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  @override
+  // متد formatEditUpdate - فرمت کردن ورودی
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    String raw = newValue.text.replaceAll(",", ""); // حذف کاماها
+    if (int.tryParse(raw) == null) return oldValue; // اعتبارسنجی عدد
+
+    // اضافه کردن جداکننده هزارگان
+    String formatted = raw.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => "${m[1]},",
+    );
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

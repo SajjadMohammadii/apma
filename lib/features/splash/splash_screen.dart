@@ -8,7 +8,7 @@ import 'package:apma_app/core/services/local_storage_service.dart'; // سروی�
 import 'package:apma_app/core/widgets/apmaco_logo.dart'; // ویجت لوگو
 import 'package:apma_app/features/authentication/presentation/bloc/auth_bloc.dart'; // بلاک احراز هویت
 import 'package:apma_app/features/authentication/presentation/bloc/auth_event.dart'; // رویدادهای احراز هویت
-import 'package:apma_app/features/auth/login_page.dart'; // صفحه ورود
+import 'package:apma_app/features/authentication/presentation/pages/login_page.dart'; // صفحه ورود
 import 'package:apma_app/features/home/home_page.dart'; // صفحه خانه
 import 'package:flutter/material.dart'; // ویجت‌های متریال
 

@@ -2,17 +2,17 @@
 // مرتبط با: transaction.dart, customer.dart, bank.dart
 
 import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های برنامه
-import 'package:apma_app/features/bank/domain/repositories/cheque_repository.dart';
-import 'package:apma_app/features/transaction/bankcheck/bank/bank.dart'; // صفحه چک بانک
-import 'package:apma_app/features/transaction/bankcheck/custumer/customer.dart'; // صفحه چک مشتری
+import 'package:apma_app/features/transaction/bankcheck/domain/repositories/cheque_repository.dart';
+import 'package:apma_app/features/transaction/bankcheck/presentation/pages/bank.dart'; // صفحه چک بانک
+import 'package:apma_app/features/transaction/bankcheck/presentation/pages/customer.dart'; // صفحه چک مشتری
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/constants/app_constant.dart';
-import '../../../core/network/soap_client.dart';
-import '../../bank/data/datasource/cheque_remote_datasource.dart';
-import '../../bank/data/repositories/cheque_repositorry_impl.dart';
-import '../../bank/presentation/bloc/cheque_bloc.dart'; // ویجت‌های متریال
+import '../../../../../core/constants/app_constant.dart';
+import '../../../../../core/network/soap_client.dart';
+import '../../data/datasource/cheque_remote_datasource.dart';
+import '../../data/repositories/cheque_repositorry_impl.dart';
+import '../bloc/cheque_bloc.dart'; // ویجت‌های متریال
 
 // کلاس BankCheckPage - صفحه چک بانکی
 class BankCheckPage extends StatefulWidget {

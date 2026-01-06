@@ -1,4 +1,4 @@
-import 'package:apma_app/features/bank/data/models/ChequeRequest.dart';
+import 'package:apma_app/features/transaction/bankcheck/data/models/ChequeRequest.dart';
 import 'package:equatable/equatable.dart';
 
 abstract class ChequeEvent extends Equatable{

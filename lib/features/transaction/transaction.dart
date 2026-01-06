@@ -5,8 +5,8 @@ import 'package:apma_app/core/constants/app_colors.dart'; // رنگ‌های ب�
 import 'package:apma_app/features/production/presentation/production_control.dart';
 import 'package:apma_app/features/transaction/Entry&Exit/presentation/pages/entry_exit_page.dart'; // صفحه ورود و خروج
 import 'package:apma_app/features/transaction/delivery_parcels/delivery_parcels.dart'; // صفحه تحویل مرسولات
-import 'package:apma_app/features/transaction/price_management/price_management_page.dart'; // صفحه مدیریت بها
-import 'package:apma_app/features/transaction/bankcheck/bank%D9%80check.dart'; // صفحه چک بانکی
+import 'package:apma_app/features/transaction/price_management/pages/price_management_page.dart'; // صفحه مدیریت بها
+import 'package:apma_app/features/transaction/bankcheck/presentation/pages/bank%D9%80check.dart'; // صفحه چک بانکی
 
 import 'package:flutter/material.dart'; // ویجت‌های متریال
 
